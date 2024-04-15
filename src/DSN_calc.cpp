@@ -2406,27 +2406,6 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         }
         DSN += abs(log10(abs(DSN_higgsino)) - log10(abs(newterm)));
         std::cout << "DSN after higgsino = " << DSN << endl;
-
-        // Now do same thing with B = b/mu;
-        vector<double> BinitGUTBCs = GUT_boundary_conditions;
-        vector<double> Bwindows = DSN_B_windows(BinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT);
-        DSN_soft_denom = abs(Bwindows[1] - Bwindows[0]);
-        DSN_soft_num = soft_prob_calc(Bwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
-            - soft_prob_calc(Bwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
-        newterm = DSN_soft_num / DSN_soft_denom;
-        // Total normalization
-        DSN_soft_denom = abs(Bwindows[3] - Bwindows[2]);
-        DSN_soft_num = soft_prob_calc(Bwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
-            - soft_prob_calc(Bwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[42] / GUT_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[42] / GUT_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[42] / GUT_boundary_conditions[6]) - boost::math::float_prior(GUT_boundary_conditions[42] / GUT_boundary_conditions[6])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[42] / GUT_boundary_conditions[6], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[42] / GUT_boundary_conditions[6], (2.0 * nF) + (1.0 * nD) - 1.0);
-        }
-        DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
     }    
 
     return DSN;
