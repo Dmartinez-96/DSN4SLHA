@@ -723,7 +723,7 @@ void terminalUI() {
 
         if (DSNcalc) {
             double logQSUSY = log(SLHAQSUSY);
-            double myDSN = DSN_calc(DSNcalcSelect, first_GUT_BCs, getmZ2_value, logQSUSY, curr_iter_QGUT, nF_input, nD_input);
+            double myDSN = DSN_calc(DSNcalcSelect, first_SUSY_BCs, getmZ2_value, logQSUSY, curr_iter_QGUT, nF_input, nD_input);
             cout << "Delta_SN = " << myDSN << endl;
         }
         break;
