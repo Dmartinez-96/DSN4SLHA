@@ -409,12 +409,12 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
     }
     double tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
     std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 10.0) {
+    if (abs(tanbshift_minus) > 1.0) {
         tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
     }
     bool too_sensitive_flag = false;
     double B_weak_minus, B_weak_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         B_weak_minus = (Bnewweaks_minus[42] / Wk_boundary_conditions[6]) - Bstep;
@@ -481,10 +481,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
         }
         tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_minus) > 10.0) {
+        if (abs(tanbshift_minus) > 1.0) {
             tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
         }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
             //B_weak_minus = Bnewweaks_minus[6] - Bstep;
@@ -507,10 +507,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
     }
     std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 10.0) {
+    if (abs(tanbshift_plus) > 1.0) {
         tanbshift_plus = (current_derivatives[0] * Bstep);
     }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         B_weak_plus = (Bnewweaks_plus[42] / Wk_boundary_conditions[6]) + Bstep;
@@ -577,10 +577,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
         }
         tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_plus) > 10.0) {
+        if (abs(tanbshift_plus) > 1.0) {
             tanbshift_plus = (current_derivatives[0] * Bstep);
         }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
             //B_weak_plus = Bnewweaks_plus[6] - Bstep;
@@ -620,16 +620,16 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
     }
     tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    if (abs(tanbshift_minus) > 10.0) {
+    if (abs(tanbshift_minus) > 1.0) {
         tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
     }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         //B_weak_minus = Bnewweaks_minus[6] - Bstep;
     } 
 
-    while ((!too_sensitive_flag) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (5.0)))) {
+    while ((!too_sensitive_flag) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0))) {
         bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
         // std::cout << "New B = " << Bnewweaks_minus[6] << endl;
@@ -689,10 +689,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
         }
         tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_minus) > 10.0) {
+        if (abs(tanbshift_minus) > 1.0) {
             tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
         }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
             //B_weak_minus = Bnewweaks_minus[6] - Bstep;
@@ -712,16 +712,16 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
     }
     tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    if (abs(tanbshift_plus) > 10.0) {
+    if (abs(tanbshift_plus) > 1.0) {
         tanbshift_plus = (current_derivatives[0] * Bstep);
     }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         //B_weak_plus = Bnewweaks_plus[6] - Bstep;
     } 
 
-    while ((!too_sensitive_flag) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (5.0)))) {
+    while ((!too_sensitive_flag) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0))) {
         bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
         // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
         // std::cout << "New B = " << Bnewweaks_plus[6] << endl;
@@ -781,10 +781,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
         }
         tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_plus) > 10.0) {
+        if (abs(tanbshift_plus) > 1.0) {
             tanbshift_plus = (current_derivatives[0] * Bstep);
         }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
             //B_weak_plus = Bnewweaks_plus[6] - Bstep;
@@ -922,12 +922,12 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
     }
     double tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
     std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 10.0) {
+    if (abs(tanbshift_minus) > 1.0) {
         tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
     }
     bool too_sensitive_flag = false;
     double pi_weak_minus, pi_weak_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         pi_weak_minus = (pinewweaks_minus[SpecificIndex]) - pistep;
@@ -1005,10 +1005,10 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
         }
         tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_minus) > 10.0) {
+        if (abs(tanbshift_minus) > 1.0) {
             tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
         }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
             //pi_weak_minus = pinewweaks_minus[6] - pistep;
@@ -1035,10 +1035,10 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
     }
     std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 10.0) {
+    if (abs(tanbshift_plus) > 1.0) {
         tanbshift_plus = (current_derivatives[0] * pistep);
     }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         pi_weak_plus = (pinewweaks_plus[SpecificIndex]) + pistep;
@@ -1115,10 +1115,10 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
             mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
         }
         tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_plus) > 10.0) {
+        if (abs(tanbshift_plus) > 1.0) {
             tanbshift_plus = (current_derivatives[0] * pistep);
         }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
         } 
@@ -1161,16 +1161,16 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
     }
     tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    if (abs(tanbshift_minus) > 10.0) {
+    if (abs(tanbshift_minus) > 1.0) {
         tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
     }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         //pi_weak_minus = pinewweaks_minus[6] - pistep;
     } 
 
-    while ((!too_sensitive_flag) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (5.0)))) {
+    while ((!too_sensitive_flag) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0))) {
         bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
         
         // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
@@ -1242,10 +1242,10 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
         }
         tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_minus) > 10.0) {
+        if (abs(tanbshift_minus) > 1.0) {
             tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
         }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
             //pi_weak_minus = pinewweaks_minus[6] - pistep;
@@ -1269,15 +1269,15 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
     }
     tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    if (abs(tanbshift_plus) > 10.0) {
+    if (abs(tanbshift_plus) > 1.0) {
         tanbshift_plus = (current_derivatives[0] * pistep);
     }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
     } 
 
-    while ((!too_sensitive_flag) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (5.0)))) {
+    while ((!too_sensitive_flag) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0))) {
         bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
         
         // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
@@ -1349,10 +1349,10 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
             mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
         }
         tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_plus) > 10.0) {
+        if (abs(tanbshift_plus) > 1.0) {
             tanbshift_plus = (current_derivatives[0] * pistep);
         }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag = true;
         } 
@@ -1401,7 +1401,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     double newmuminus = muminus;
     double tanbminus = munewweaks_minus[43];
     double newtanbminus = tanbminus;
-    double BGUT_original = Wk_boundary_conditions[42] / Wk_boundary_conditions[6];
 
     // First compute width of ABDS window
     double lambdaMu = 0.5;
@@ -1415,36 +1414,32 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             muminusEWSB = false;
         }
     }
-    double mustep, bigmustep;
-    mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_minus[6])) - abs(munewweaks_minus[6])));// * abs(munewweaks_minus[6]);
-        
-    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
+    double mustepplus, mustepminus, bigmustep;
+    mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]);    
+    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                           + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
     
-    std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
+    // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
+    if (abs(mZ2shift_minus) > 1.0) {
+        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
     }
-    double tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-    std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-    }
+    double tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+    // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
     bool too_sensitive_flag = false;
     double mu_weak_minus, mu_weak_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+    if ((abs(mZ2shift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
-        mu_weak_minus = munewweaks_minus[6] - mustep;
+        mu_weak_minus = munewweaks_minus[6] + mustepminus;
     } 
     // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
-    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 10.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
-        bigmustep = mustep;// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
-        std::cout << "New mu = " << munewweaks_minus[6] << endl;
-        std::cout << "New tanb = " << munewweaks_minus[43] << endl;
+    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
+        bigmustep = mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+        // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
+        // std::cout << "New mu = " << munewweaks_minus[6] << endl;
+        // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
         vector<double> checkweaksols = munewweaks_minus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
         muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1459,27 +1454,26 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         if (!(muminusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muminusNoCCB = false;
-            }
-        }
+        // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
+        // for (double value : tree_level_masses) {
+        //     if (value < 0) {
+        //         muminusNoCCB = false;
+        //     }
+        // }
         if (!(muminusNoCCB)) {
             break;
         } 
         // std::cout << "Mu step size = " << mustep << endl;
         vector<double> muoldweaks_minus = munewweaks_minus;
-        munewweaks_minus[6] -= bigmustep;
+        munewweaks_minus[6] += bigmustep;
         munewweaks_minus[42] = (munewweaks_minus[42] / muoldweaks_minus[6]) * munewweaks_minus[6];
-        
         
         if (!(muminusEWSB)) {
             munewweaks_minus[6] = muoldweaks_minus[6];
             break;
         }
-        munew_mZ2minus += mZ2shift_minus;//copysign((2.0 * sqrt(munew_mZ2minus)) + 1.0, mZ2shift_minus);
-        munewweaks_minus[43] += tanbshift_minus;//(tanbshift_minus * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
+        munew_mZ2minus += copysign(1.0, mZ2shift_minus);
+        munewweaks_minus[43] += tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1501,22 +1495,19 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[43] = muoldweaks_minus[43];
             break;
         }
-        mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_minus[6])) - abs(munewweaks_minus[6])));// * abs(munewweaks_minus[6]);
+        mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
         current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
     
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                           + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
+        tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            // std::cout << "Sensitivity too high in ABDS minus shift routine" << endl;
             too_sensitive_flag = true;
             //mu_weak_minus = munewweaks_minus[6] - mustep;
         } 
@@ -1525,34 +1516,33 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     
     mu_weak_minus = munewweaks_minus[6];
     
-    mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_plus[6])) - abs(munewweaks_plus[6])));// * abs(munewweaks_plus[6]);
+    mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);// * abs(munewweaks_minus[6]);
     current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
     
-    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
+    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                           + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    double tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
+    double tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
 
-    std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
+    // std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
+    if (abs(mZ2shift_plus) > 1.0) {
+        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
     }
-    std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * mustep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+    // std::cout << "tanb plus shift: " << tanbshift_plus << endl;
+    if ((abs(mZ2shift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
-        mu_weak_plus = munewweaks_plus[6] + mustep;
-    }
+        mu_weak_plus = munewweaks_plus[6] + (mustepplus / mZ2shift_plus);
+    } 
     // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
-    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 10.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
-        bigmustep = mustep;// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
-        std::cout << "New mu = " << munewweaks_plus[6] << endl;
-        std::cout << "New tanb = " << munewweaks_plus[43] << endl;
+    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
+        bigmustep = mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+        // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
+        // std::cout << "New mu = " << munewweaks_plus[6] << endl;
+        // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
+        // std::cout << "EWSB: " << muplusEWSB << endl;
+        // std::cout << "CCB: " << muplusNoCCB << endl;
         vector<double> checkweaksols = munewweaks_plus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
         muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1567,12 +1557,12 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         if (!(muplusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muplusNoCCB = false;
-            }
-        }
+        // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
+        // for (double value : tree_level_masses) {
+        //     if (value < 0) {
+        //         muplusNoCCB = false;
+        //     }
+        // }
         if (!(muplusNoCCB)) {
             break;
         } 
@@ -1586,8 +1576,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[6] = muoldweaks_plus[6];
             break;
         }
-        munew_mZ2plus += mZ2shift_plus;//copysign((2.0 * sqrt(munew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        munewweaks_plus[43] += tanbshift_plus;//(tanbshift_plus * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
+        munew_mZ2plus += copysign(1.0, (-1.0) * mZ2shift_minus);
+        munewweaks_plus[43] += tanbshift_plus / abs(mZ2shift_plus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1609,24 +1599,21 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[43] = muoldweaks_plus[43];
             break;
         }
-        mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_plus[6])) - abs(munewweaks_plus[6])));// * abs(munewweaks_plus[6]);
+        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);    
         current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
     
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                           + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * mustep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
+        tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
             too_sensitive_flag = true;
-            //mu_weak_plus = munewweaks_plus[6] + mustep;
+            //mu_weak_plus = munewweaks_plus[6] - mustep;
         } 
     }
     std::cout << "mu(ABDS, plus) = " << munewweaks_plus[6] << endl; 
@@ -1640,45 +1627,40 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     bool ABDSpluscheck = (muplusEWSB && muplusNoCCB);
     bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
     double mu_TOTAL_weak_minus, mu_TOTAL_weak_plus;
-    if ((!(total_ABDScheck)) || too_sensitive_flag) {
-        if (abs(mu_weak_minus) <= abs(mu_weak_plus)) {
-            mu_TOTAL_weak_minus = 10.0;//0.000001 * mu_weak_minus;//pow(10.0, -0.5) * mu_weak_minus;
-            mu_TOTAL_weak_plus = 1.0e16;//1000000.0 * mu_weak_plus;//pow(10.0, 0.5) * mu_weak_plus;
-        } else {
-            mu_TOTAL_weak_minus = 1.0e16;//1000000.0 * mu_weak_minus;//pow(10.0, 0.5) * mu_weak_minus;
-            mu_TOTAL_weak_plus = 10.0;//0.000001 * mu_weak_plus;//pow(10.0, -0.5) * mu_weak_plus;
-        }
+    // if ((!(total_ABDScheck)) || too_sensitive_flag) {
+    //     mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+    //     mu_TOTAL_weak_plus = mu_weak_plus + (mustepplus / abs(mZ2shift_plus));
 
-        std::cout << "General window established for mu variation." << endl;
+    //     std::cout << "Had to stop early. General window established for mu variation." << endl;
 
-        return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
-    }
+    //     return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
+    // }
 
-    mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_minus[6])) - abs(munewweaks_minus[6])));// * abs(munewweaks_minus[6]);
+    mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
     current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
 
-    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                        + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
+    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                           + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+    
+    // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
+    if (abs(mZ2shift_minus) > 1.0) {
+        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
     }
-    tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-    }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+    tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+    // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
+    if ((abs(mZ2shift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
         //mu_weak_minus = munewweaks_minus[6] - mustep;
     } 
 
-    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 10.0) && ((munew_mZ2minus > (5.0)))) {
-        bigmustep = mustep;// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
-        std::cout << "New mu = " << munewweaks_minus[6] << endl;
-        std::cout << "New tanb = " << munewweaks_minus[43] << endl;
+    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0))) {
+        bigmustep = mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+        // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
+        // std::cout << "New mu = " << munewweaks_minus[6] << endl;
+        // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
         vector<double> checkweaksols = munewweaks_minus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
         muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1688,23 +1670,25 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         }
         muminusNoCCB = CCB_Check(checkweaksols);
         if (!(muminusEWSB) || !(muminusNoCCB)) {
+            // std::cout << "Stopped due to EWSB issues" << endl;
             break;
         } 
         if (!(muminusNoCCB)) {
+            // std::cout << "Stopped due to CCB issues" << endl;
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muminusNoCCB = false;
-            }
-        }
+        // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
+        // for (double value : tree_level_masses) {
+        //     if (value < 0) {
+        //         muminusNoCCB = false;
+        //     }
+        // }
         if (!(muminusNoCCB)) {
             break;
         } 
         // std::cout << "Mu step size = " << mustep << endl;
         vector<double> muoldweaks_minus = munewweaks_minus;
-        munewweaks_minus[6] -= bigmustep;
+        munewweaks_minus[6] += bigmustep;
         munewweaks_minus[42] = (munewweaks_minus[42] / muoldweaks_minus[6]) * munewweaks_minus[6];
         
         
@@ -1712,8 +1696,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[6] = muoldweaks_minus[6];
             break;
         }
-        munew_mZ2minus += mZ2shift_minus;//copysign((2.0 * sqrt(munew_mZ2minus)) + 1.0, mZ2shift_minus);
-        munewweaks_minus[43] += tanbshift_minus;//(tanbshift_minus * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
+        munew_mZ2minus += copysign(1.0, mZ2shift_minus);
+        munewweaks_minus[43] += tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1735,53 +1719,47 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[43] = muoldweaks_minus[43];
             break;
         }
-        mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_minus[6])) - abs(munewweaks_minus[6])));// * abs(munewweaks_minus[6]);
+        mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
         current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
     
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                           + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
+        tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            // std::cout << "Sensitivity too high in total minus" << endl;
             too_sensitive_flag = true;
             //mu_weak_minus = munewweaks_minus[6] - mustep;
         } 
     }
     std::cout << "mu(total, minus) = " << munewweaks_minus[6] << endl; 
     mu_TOTAL_weak_minus = munewweaks_minus[6];
-    mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_plus[6])) - abs(munewweaks_plus[6])));// * abs(munewweaks_plus[6]);
+    mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);// * abs(munewweaks_minus[6]);
     current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
 
-    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                        + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
+    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                           + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+    if (abs(mZ2shift_plus) > 1.0) {
+        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
     }
-    tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * mustep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+    tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+    if ((abs(mZ2shift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
         too_sensitive_flag = true;
-        //mu_weak_plus = munewweaks_plus[6] + mustep;
+        mu_TOTAL_weak_plus = munewweaks_plus[6] + (mustepplus / abs(mZ2shift_plus));
     } 
 
-    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 10.0) && ((munew_mZ2plus > (5.0)))) {
-        bigmustep = mustep;// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
-        std::cout << "New mu = " << munewweaks_plus[6] << endl;
-        std::cout << "New tanb = " << munewweaks_plus[43] << endl;
+    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0))) {
+        bigmustep = mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+        // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
+        // std::cout << "New mu = " << munewweaks_plus[6] << endl;
+        // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
         vector<double> checkweaksols = munewweaks_plus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
         muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1796,12 +1774,12 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         if (!(muplusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muplusNoCCB = false;
-            }
-        }
+        // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
+        // for (double value : tree_level_masses) {
+        //     if (value < 0) {
+        //         muplusNoCCB = false;
+        //     }
+        // }
         if (!(muplusNoCCB)) {
             break;
         } 
@@ -1815,8 +1793,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[6] = muoldweaks_plus[6];
             break;
         }
-        munew_mZ2plus += mZ2shift_plus;//copysign((2.0 * sqrt(munew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        munewweaks_plus[43] += tanbshift_plus;//(tanbshift_plus * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
+        munew_mZ2plus += copysign(1.0, (-1.0) * mZ2shift_minus);
+        munewweaks_plus[43] += tanbshift_plus / abs(mZ2shift_plus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1838,42 +1816,36 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[43] = muoldweaks_plus[43];
             break;
         }
-        mustep = max(1.0e-6, (boost::math::float_next(abs(munewweaks_plus[6])) - abs(munewweaks_plus[6])));// * abs(munewweaks_plus[6]);
+        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);    
         current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
     
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                           + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * mustep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
+        tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
             too_sensitive_flag = true;
-            //mu_weak_plus = munewweaks_plus[6] + mustep;
+            //mu_weak_plus = munewweaks_plus[6] - mustep;
         } 
     }
     std::cout << "mu(total, plus) = " << munewweaks_plus[6] << endl; 
     mu_TOTAL_weak_plus = munewweaks_plus[6];
 
-    if ((abs(mu_TOTAL_weak_minus - mu_weak_minus) < 1.0e-12) && (abs(mu_TOTAL_weak_plus - mu_weak_plus) < 1.0e-12)) {
-        if (abs(mu_weak_minus) <= abs(mu_weak_plus)) {
-            mu_TOTAL_weak_minus = 10.0;//0.000001 * mu_weak_minus;//pow(10.0, -0.5) * mu_weak_minus;
-            mu_TOTAL_weak_plus = 1.0e16;//1000000.0 * mu_weak_plus;//pow(10.0, 0.5) * mu_weak_plus;
-        } else {
-            mu_TOTAL_weak_minus = 1.0e16;//1000000.0 * mu_weak_minus;//pow(10.0, 0.5) * mu_weak_minus;
-            mu_TOTAL_weak_plus = 10.0;//0.000001 * mu_weak_plus;//pow(10.0, -0.5) * mu_weak_plus;
-        }
-
-        std::cout << "General window established for mu variation." << endl;
-
-        return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
+    if ((abs(mu_TOTAL_weak_minus - mu_weak_minus) < 1.0e-12)) {
+        mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
     }
+    if ((abs(mu_TOTAL_weak_plus - mu_weak_plus) < 1.0e-12)) {
+        mu_TOTAL_weak_plus = mu_weak_plus + (mustepplus / abs(mZ2shift_plus));
+    }
+    //std::cout << "General window established for mu variation." << endl;
+
+        //return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
+    
 
     std::cout << "General window established for mu variation." << endl;
 
