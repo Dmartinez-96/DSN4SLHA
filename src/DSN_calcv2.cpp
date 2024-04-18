@@ -31,6 +31,18 @@ double signum(double x) {
     }
 }
 
+double signed_square(double x2, double h) {
+    double signedsqrt = copysign(sqrt(abs(x2)), x2);
+    double shiftedvalue = signedsqrt + h;
+    double signedsquare;
+    if ((signum(signedsqrt) != signum(shiftedvalue))) {
+        signedsquare = (-1.0) * copysign(shiftedvalue * shiftedvalue, x2);
+    } else {
+        signedsquare = copysign(shiftedvalue * shiftedvalue, x2);
+    }
+    return signedsquare;
+}
+
 double soft_prob_calc(double x, int nPower) {
     return ((0.5 * x / (static_cast<double>(nPower) + 1.0))
             * ((signum(x) * (pow(x, nPower) - pow((-1.0) * x, nPower))) + pow(x, nPower) + pow((-1.0) * x, nPower)));
@@ -360,7 +372,6 @@ vector<double> single_var_deriv_approxes(vector<double>& original_weak_condition
 }
 
 vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& current_mZ2, double& current_logQSUSY) {
-    double t_target = log(500.0);
     vector<double> Bnewweaks_plus = Wk_boundary_conditions;
     vector<double> Bnewweaks_minus = Wk_boundary_conditions;
     double BcurrentlogQSUSY = current_logQSUSY;
@@ -395,36 +406,31 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             BminusEWSB = false;
         }
     }
-    double Bstep, bigBstep;
-    Bstep = (boost::math::float_next(abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]);
+    double Bstepplus, Bstepminus, bigBstep;
+    Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
         
-    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                           + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
     
-    std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
+    // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
+    if (abs(mZ2shift_minus) > 1.0) {
+        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
     }
-    double tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 1.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-    }
-    bool too_sensitive_flag = false;
+    double tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+    
+    bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
     double B_weak_minus, B_weak_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        B_weak_minus = (Bnewweaks_minus[42] / Wk_boundary_conditions[6]) - Bstep;
+    if ((abs(mZ2shift_minus) > 1.0)) {
+        too_sensitive_flag_minus = true;
+        B_weak_minus = (Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + Bstepminus;
     } 
     // B convergence becomes bad when B is small (i.e. < 10 GeV), so cutoff at abs(B) = 10 GeV
-    while ((!too_sensitive_flag) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (45.5938 * 45.5938)) && (Bnew_mZ2minus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+    while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (45.5938 * 45.5938)) && (Bnew_mZ2minus < (364.7504 * 364.7504)))) {
+        bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
-        // std::cout << "New B = " << Bnewweaks_minus[6] << endl;
+        // std::cout << "New B = " << Bnewweaks_minus[42] / Bnewweaks_minus[6] << endl;
         // std::cout << "New tanb = " << Bnewweaks_minus[43] << endl;
         vector<double> checkweaksols = Bnewweaks_minus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
@@ -440,19 +446,17 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         if (!(BminusNoCCB)) {
             break;
         } 
-        // std::cout << "B step size = " << Bstep << endl;
         vector<double> Boldweaks_minus = Bnewweaks_minus;
-        Bnewweaks_minus[42] = ((Bnewweaks_minus[42] / Wk_boundary_conditions[6]) - bigBstep) * Wk_boundary_conditions[6];
+        Bnewweaks_minus[42] = ((Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
                 
         if (!(BminusEWSB)) {
             Bnewweaks_minus[42] = Boldweaks_minus[42];
             break;
         }
-        Bnew_mZ2minus += copysign((2.0 * sqrt(Bnew_mZ2minus)) + 1.0, mZ2shift_minus);
-        Bnewweaks_minus[43] += (tanbshift_minus * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
+        Bnew_mZ2minus += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+        Bnewweaks_minus[43] += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((Bnewweaks_minus[43] < 3.0) || (Bnewweaks_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             BminusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -470,57 +474,45 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             Bnewweaks_minus[43] = Boldweaks_minus[43];
             break;
         }
-        Bstep = (boost::math::float_next(abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]);
+        Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
         current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
     
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                           + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_minus) > 1.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_weak_minus = Bnewweaks_minus[6] - Bstep;
+        tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
         } 
     }
     std::cout << "B(ABDS, minus) = " << Bnewweaks_minus[42] / Wk_boundary_conditions[6] << endl; 
     
     B_weak_minus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
-    Bstep = (boost::math::float_next(abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]);
+    Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
     current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
     
-    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                           + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    double tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
+    double tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
 
-    std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
+    if (abs(mZ2shift_plus) > 1.0) {
+        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
     }
-    std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 1.0) {
-        tanbshift_plus = (current_derivatives[0] * Bstep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        B_weak_plus = (Bnewweaks_plus[42] / Wk_boundary_conditions[6]) + Bstep;
-    }
-    // B convergence becomes bad when B is small (i.e. < 10 GeV), so cutoff at abs(B) = 10 GeV
-    while ((!too_sensitive_flag) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (45.5938 * 45.5938)) && (Bnew_mZ2plus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+    if ((abs(mZ2shift_plus) > 1.0)) {
+        too_sensitive_flag_plus = true;
+        B_weak_plus = (Bnewweaks_plus[42] / Bnewweaks_plus[6]) + (Bstepplus);
+    } 
+    while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (45.5938 * 45.5938)) && (Bnew_mZ2plus < (364.7504 * 364.7504)))) {
+        bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
+        
         // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
-        // std::cout << "New B = " << Bnewweaks_plus[6] << endl;
+        // std::cout << "New B = " << Bnewweaks_plus[42] / Bnewweaks_plus[6] << endl;
         // std::cout << "New tanb = " << Bnewweaks_plus[43] << endl;
         vector<double> checkweaksols = Bnewweaks_plus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
@@ -536,7 +528,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         if (!(BplusNoCCB)) {
             break;
         } 
-        // std::cout << "B step size = " << Bstep << endl;
         vector<double> Boldweaks_plus = Bnewweaks_plus;
         Bnewweaks_plus[42] = ((Bnewweaks_plus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
                 
@@ -544,11 +535,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             Bnewweaks_plus[42] = Boldweaks_plus[42];
             break;
         }
-        Bnew_mZ2plus += copysign((2.0 * sqrt(Bnew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
+        Bnew_mZ2plus += abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0) * (Bnew_mZ2minus - (91.1876 * 91.1876)));
         Bnewweaks_plus[43] += (tanbshift_plus * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
         // Now adjust Yukawas for next iteration.
         if ((Bnewweaks_plus[43] < 3.0) || (Bnewweaks_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             BplusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -561,29 +551,24 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         }        
 
         if (!BplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
             Bnewweaks_plus[42] = Boldweaks_plus[42];
             Bnewweaks_plus[43] = Boldweaks_plus[43];
             break;
         }
-        Bstep = (boost::math::float_next(abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]);
+        Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
         current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
     
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                           + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_plus) > 1.0) {
-            tanbshift_plus = (current_derivatives[0] * Bstep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_weak_plus = Bnewweaks_plus[6] - Bstep;
+        tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
+        
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
         } 
     }
     std::cout << "B(ABDS, plus) = " << Bnewweaks_plus[42] / Wk_boundary_conditions[6] << endl; 
@@ -592,47 +577,28 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
     
     std::cout << "ABDS window established for B variation." << endl;
 
-    bool ABDSminuscheck = (BminusEWSB && BminusNoCCB); 
-    bool ABDSpluscheck = (BplusEWSB && BplusNoCCB);
-    bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
     double B_TOTAL_weak_minus, B_TOTAL_weak_plus;
-    if ((!(total_ABDScheck)) || too_sensitive_flag) {
-        if (abs(B_weak_minus) <= abs(B_weak_plus)) {
-            B_TOTAL_weak_minus = 0.1 * B_weak_minus;//pow(10.0, -0.5) * B_weak_minus;
-            B_TOTAL_weak_plus = 10.0 * B_weak_plus;//pow(10.0, 0.5) * B_weak_plus;
-        } else {
-            B_TOTAL_weak_minus = 10.0 * B_weak_minus;//pow(10.0, 0.5) * B_weak_minus;
-            B_TOTAL_weak_plus = 0.1 * B_weak_plus;//pow(10.0, -0.5) * B_weak_plus;
-        }
-
-        std::cout << "General window established for B variation." << endl;
-
-        return {B_weak_minus, B_weak_plus, B_TOTAL_weak_minus, B_TOTAL_weak_plus};
-    }
-    Bstep = (boost::math::float_next(abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]);
+    
+    Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
     current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
 
-    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                        + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                        + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
                                                     + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                     + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
+    if (abs(mZ2shift_minus) > 1.0) {
+        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
     }
-    tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    if (abs(tanbshift_minus) > 1.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-    }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //B_weak_minus = Bnewweaks_minus[6] - Bstep;
+    tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+    
+    if ((abs(mZ2shift_minus) > 1.0)) {
+        too_sensitive_flag_minus = true;
     } 
 
-    while ((!too_sensitive_flag) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0))) {
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+    while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0))) {
+        bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
-        // std::cout << "New B = " << Bnewweaks_minus[6] << endl;
+        // std::cout << "New B = " << Bnewweaks_minus[42] / Bnewweaks_minus[6] << endl;
         // std::cout << "New tanb = " << Bnewweaks_minus[43] << endl;
         vector<double> checkweaksols = Bnewweaks_minus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
@@ -648,19 +614,17 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         if (!(BminusNoCCB)) {
             break;
         } 
-        // std::cout << "B step size = " << Bstep << endl;
         vector<double> Boldweaks_minus = Bnewweaks_minus;
-        Bnewweaks_minus[42] = ((Bnewweaks_minus[42] / Wk_boundary_conditions[6]) - bigBstep) * Wk_boundary_conditions[6];
+        Bnewweaks_minus[42] = ((Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
                 
         if (!(BminusEWSB)) {
             Bnewweaks_minus[42] = Boldweaks_minus[42];
             break;
         }
-        Bnew_mZ2minus += copysign((2.0 * sqrt(Bnew_mZ2minus)) + 1.0, mZ2shift_minus);
-        Bnewweaks_minus[43] += (tanbshift_minus * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
+        Bnew_mZ2minus += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+        Bnewweaks_minus[43] += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((Bnewweaks_minus[43] < 3.0) || (Bnewweaks_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             BminusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -673,59 +637,51 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         }        
 
         if (!BminusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
             Bnewweaks_minus[42] = Boldweaks_minus[42];
             Bnewweaks_minus[43] = Boldweaks_minus[43];
             break;
         }
-        Bstep = (boost::math::float_next(abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_minus[42] / Wk_boundary_conditions[6]);
+        Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
         current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
     
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                           + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_minus) > 1.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_weak_minus = Bnewweaks_minus[6] - Bstep;
+        tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
         } 
     }
     std::cout << "B(total, minus) = " << Bnewweaks_minus[42] / Wk_boundary_conditions[6] << endl; 
     B_TOTAL_weak_minus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
 
-    Bstep = (boost::math::float_next(abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]);
+    Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
     current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
 
-    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                        + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                        + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
                                                     + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                     + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
+    if (abs(mZ2shift_plus) > 1.0) {
+        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
     }
-    tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    if (abs(tanbshift_plus) > 1.0) {
-        tanbshift_plus = (current_derivatives[0] * Bstep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //B_weak_plus = Bnewweaks_plus[6] - Bstep;
+    tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
+    
+    if ((abs(mZ2shift_plus) > 1.0)) {
+        too_sensitive_flag_plus = true;
+        B_TOTAL_weak_plus = Bnewweaks_plus[6] + (Bstepplus / abs(mZ2shift_plus));
     } 
 
-    while ((!too_sensitive_flag) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0))) {
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+    while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0))) {
+        bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
         // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
-        // std::cout << "New B = " << Bnewweaks_plus[6] << endl;
+        // std::cout << "New B = " << Bnewweaks_plus[42] / Bnewweaks_plus[6] << endl;
         // std::cout << "New tanb = " << Bnewweaks_plus[43] << endl;
+        
         vector<double> checkweaksols = Bnewweaks_plus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
         BplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -740,7 +696,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         if (!(BplusNoCCB)) {
             break;
         } 
-        // std::cout << "B step size = " << Bstep << endl;
         vector<double> Boldweaks_plus = Bnewweaks_plus;
         Bnewweaks_plus[42] = ((Bnewweaks_plus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
                 
@@ -748,11 +703,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             Bnewweaks_plus[42] = Boldweaks_plus[42];
             break;
         }
-        Bnew_mZ2plus += copysign((2.0 * sqrt(Bnew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
+        Bnew_mZ2plus += abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0) * (Bnew_mZ2minus - (91.1876 * 91.1876)));
         Bnewweaks_plus[43] += (tanbshift_plus * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
         // Now adjust Yukawas for next iteration.
         if ((Bnewweaks_plus[43] < 3.0) || (Bnewweaks_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             BplusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -765,46 +719,34 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         }        
 
         if (!BplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
             Bnewweaks_plus[42] = Boldweaks_plus[42];
             Bnewweaks_plus[43] = Boldweaks_plus[43];
             break;
         }
-        Bstep = (boost::math::float_next(abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]));// * abs(Bnewweaks_plus[42] / Wk_boundary_conditions[6]);
+        Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
         current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
     
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                           + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_plus) > 1.0) {
-            tanbshift_plus = (current_derivatives[0] * Bstep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_weak_plus = Bnewweaks_plus[6] - Bstep;
+        tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
+        
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
         } 
     }
     std::cout << "B(total, plus) = " << Bnewweaks_plus[42] / Wk_boundary_conditions[6] << endl; 
     B_TOTAL_weak_plus = Bnewweaks_plus[42] / Wk_boundary_conditions[6];
 
-    if ((abs(B_TOTAL_weak_minus - B_weak_minus) < 1.0e-12) && (abs(B_TOTAL_weak_plus - B_weak_plus) < 1.0e-12)) {
-        if (abs(B_weak_minus) <= abs(B_weak_plus)) {
-            B_TOTAL_weak_minus = 0.1 * B_weak_minus;//pow(10.0, -0.5) * B_weak_minus;
-            B_TOTAL_weak_plus = 10.0 * B_weak_plus;//pow(10.0, 0.5) * B_weak_plus;
-        } else {
-            B_TOTAL_weak_minus = 10.0 * B_weak_minus;//pow(10.0, 0.5) * B_weak_minus;
-            B_TOTAL_weak_plus = 0.1 * B_weak_plus;//pow(10.0, -0.5) * B_weak_plus;
-        }
-
-        std::cout << "General window established for B variation." << endl;
-
-        return {B_weak_minus, B_weak_plus, B_TOTAL_weak_minus, B_TOTAL_weak_plus};
+    if ((abs(B_TOTAL_weak_minus - B_weak_minus) < 1.0e-12)) {
+        B_TOTAL_weak_minus = B_weak_minus + (Bstepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+    }
+    if ((abs(B_TOTAL_weak_plus - B_weak_plus) < 1.0e-12)) {
+        B_TOTAL_weak_plus = B_weak_plus + (Bstepplus / abs(mZ2shift_plus));
     }
 
     std::cout << "General window established for B variation." << endl;
@@ -896,50 +838,38 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
     double newtanbminus = tanbminus;
 
     // First compute width of ABDS window
-    double lambdapi = 0.5;
-    double pi_least_Sq_Tol = 1.0e-2;
     vector<double> current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
     for (double deriv_value : current_derivatives) {
-        //std::cout << "Derivative: " << deriv_value << endl;
         if (isnan(deriv_value) || isinf(deriv_value)) {
             piminusEWSB = false;
         }
     }
-    double pistep, bigpistep;
+    double pistepplus, pistepminus, bigpistep;
     if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewweaks_minus[SpecificIndex]))) - sqrt(abs(pinewweaks_minus[SpecificIndex])));
+        pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
     } else {
-        pistep = (boost::math::float_next(abs(pinewweaks_minus[SpecificIndex])) - abs(pinewweaks_minus[SpecificIndex]));
+        pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
     }    
-    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                           + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
     
-    std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
+    if (abs(mZ2shift_minus) > 1.0) {
+        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
     }
-    double tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 1.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-    }
-    bool too_sensitive_flag = false;
+    double tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+    bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
     double pi_weak_minus, pi_weak_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        pi_weak_minus = (pinewweaks_minus[SpecificIndex]) - pistep;
+    if ((abs(mZ2shift_minus) > 1.0)) {
+        too_sensitive_flag_minus = true;
+        pi_weak_minus = (pinewweaks_minus[SpecificIndex]) + pistepminus;
     } 
-    while ((!too_sensitive_flag) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (45.5938 * 45.5938)) && (pinew_mZ2minus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        
+    while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (45.5938 * 45.5938)) && (pinew_mZ2minus < (364.7504 * 364.7504)))) {
+        bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewweaks_minus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
+        // std::cout << "New " << paramName << " = " << pinewweaks_minus[SpecificIndex] << endl;
+        // std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
         vector<double> checkweaksols = pinewweaks_minus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
         piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -947,33 +877,20 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         if (piminusEWSB == true) {
             piminusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
         }
-        // if (piminusEWSB == true) {
-        //     piminusEWSB = BFB_check(checkweaksols);
-        // }
         piminusNoCCB = CCB_Check(checkweaksols);
         if (!(piminusEWSB) || !(piminusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piminusNoCCB = false;
-            }
-        }
-        if (!(piminusNoCCB)) {
-            break;
-        } 
         vector<double> pioldweaks_minus = pinewweaks_minus;
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewweaks_minus[SpecificIndex] = pinewweaks_minus[SpecificIndex] - (2.0 * bigpistep * sqrt(abs(pinewweaks_minus[SpecificIndex]))) + (bigpistep * bigpistep);
+            pinewweaks_minus[SpecificIndex] = signed_square(pinewweaks_minus[SpecificIndex], bigpistep);
         } else {
-            pinewweaks_minus[SpecificIndex] = ((pinewweaks_minus[SpecificIndex]) - bigpistep);
+            pinewweaks_minus[SpecificIndex] += bigpistep;
         }
-        pinew_mZ2minus += copysign((2.0 * sqrt(pinew_mZ2minus)) + 1.0, mZ2shift_minus);
-        pinewweaks_minus[43] += (tanbshift_minus * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
+        pinew_mZ2minus += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+        pinewweaks_minus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((pinewweaks_minus[43] < 3.0) || (pinewweaks_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             piminusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -986,70 +903,56 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         }        
 
         if (!piminusEWSB) {
-            // std::cout << "EWSpi issue in convergence loop" << endl;
             pinewweaks_minus[SpecificIndex] = pioldweaks_minus[SpecificIndex];
             break;
         }
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewweaks_minus[SpecificIndex]))) - sqrt(abs(pinewweaks_minus[SpecificIndex])));
+            pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
         } else {
-            pistep = (boost::math::float_next(abs(pinewweaks_minus[SpecificIndex])) - abs(pinewweaks_minus[SpecificIndex]));
-        }    
+            pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+        }      
         current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
     
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                           + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_minus) > 1.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //pi_weak_minus = pinewweaks_minus[6] - pistep;
+        tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
         } 
     }
     std::cout << paramName << "(ABDS, minus) = " << pinewweaks_minus[SpecificIndex] << endl; 
     pi_weak_minus = pinewweaks_minus[SpecificIndex];
 
     if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewweaks_plus[SpecificIndex]))) - sqrt(abs(pinewweaks_plus[SpecificIndex])));
+        pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
     } else {
-        pistep = (boost::math::float_next(abs(pinewweaks_plus[SpecificIndex])) - abs(pinewweaks_plus[SpecificIndex]));
-    }    
+        pistepplus = (boost::math::float_next((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+    }   
     current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
     
-    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                           + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    double tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
+    double tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
 
-    std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
+    if (abs(mZ2shift_plus) > 1.0) {
+        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
     }
-    std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 1.0) {
-        tanbshift_plus = (current_derivatives[0] * pistep);
+    if ((abs(mZ2shift_plus) > 1.0)) {
+        too_sensitive_flag_plus = true;
+        pi_weak_plus = (pinewweaks_plus[SpecificIndex]) + pistepplus;
     }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        pi_weak_plus = (pinewweaks_plus[SpecificIndex]) + pistep;
-    }
-    while ((!too_sensitive_flag) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (45.5938 * 45.5938)) && (pinew_mZ2plus < (364.7504 * 364.7504)))) {
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        
+    while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (45.5938 * 45.5938)) && (pinew_mZ2plus < (364.7504 * 364.7504)))) {
+        bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
         // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewweaks_plus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
+        // std::cout << "New " << paramName << " = " << pinewweaks_plus[SpecificIndex] << endl;
+        // std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
         vector<double> checkweaksols = pinewweaks_plus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
         piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1057,33 +960,20 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         if (piplusEWSB == true) {
             piplusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
         }
-        // if (piplusEWSB == true) {
-        //     piplusEWSB = BFB_check(checkweaksols);
-        // }
         piplusNoCCB = CCB_Check(checkweaksols);
         if (!(piplusEWSB) || !(piplusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piplusNoCCB = false;
-            }
-        }
-        if (!(piplusNoCCB)) {
-            break;
-        } 
         vector<double> pioldweaks_plus = pinewweaks_plus;
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewweaks_plus[SpecificIndex] = pinewweaks_plus[SpecificIndex] + (2.0 * bigpistep * sqrt(abs(pinewweaks_plus[SpecificIndex]))) + (bigpistep * bigpistep);
+            pinewweaks_plus[SpecificIndex] = signed_square(pinewweaks_plus[SpecificIndex], bigpistep);
         } else {
-            pinewweaks_plus[SpecificIndex] = ((pinewweaks_plus[SpecificIndex]) - bigpistep);
+            pinewweaks_plus[SpecificIndex] += bigpistep;
         }
-        pinew_mZ2plus += copysign((2.0 * sqrt(pinew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        pinewweaks_plus[43] += (tanbshift_plus * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
+        pinew_mZ2plus += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0) * (pinew_mZ2minus - (91.1876 * 91.1876)));
+        pinewweaks_plus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * tanbshift_plus / abs(mZ2shift_plus);
         // Now adjust Yukawas for next iteration.
         if ((pinewweaks_plus[43] < 3.0) || (pinewweaks_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             piplusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1096,31 +986,26 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         }        
 
         if (!piplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
             pinewweaks_plus[SpecificIndex] = pioldweaks_plus[SpecificIndex];
             break;
         }
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewweaks_plus[SpecificIndex]))) - sqrt(abs(pinewweaks_plus[SpecificIndex])));
+            pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]);
         } else {
-            pistep = (boost::math::float_next(abs(pinewweaks_plus[SpecificIndex])) - abs(pinewweaks_plus[SpecificIndex]));
-        }    
+            pistepplus = (boost::math::float_next((pinewweaks_plus[SpecificIndex])) - (pinewweaks_plus[SpecificIndex]));
+        }      
         current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
     
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                           + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_plus) > 1.0) {
-            tanbshift_plus = (current_derivatives[0] * pistep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
+        tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
         } 
     }
     std::cout << paramName << "(ABDS, plus) = " << pinewweaks_plus[SpecificIndex] << endl; 
@@ -1128,55 +1013,32 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
     
     std::cout << "ABDS window established for " << paramName << " variation." << endl;
 
-    bool ABDSminuscheck = (piminusEWSB && piminusNoCCB); 
-    bool ABDSpluscheck = (piplusEWSB && piplusNoCCB);
-    bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
     double pi_TOTAL_weak_minus, pi_TOTAL_weak_plus;
-    if (!(total_ABDScheck) || too_sensitive_flag) {
-        if (abs(pi_weak_minus) <= abs(pi_weak_plus)) {
-            pi_TOTAL_weak_minus = 0.1 * pi_TOTAL_weak_minus;
-            pi_TOTAL_weak_plus = 10.0 * pi_TOTAL_weak_plus;
-        } else {
-            pi_TOTAL_weak_minus = 10.0 * pi_TOTAL_weak_minus;
-            pi_TOTAL_weak_plus = 0.1 * pi_TOTAL_weak_plus;
-        }
-
-        std::cout << "General window established for " << paramName << " variation." << endl;
-
-        return {pi_weak_minus, pi_weak_plus, pi_TOTAL_weak_minus, pi_TOTAL_weak_plus};
-    }
 
     if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewweaks_minus[SpecificIndex]))) - sqrt(abs(pinewweaks_minus[SpecificIndex])));
+        pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
     } else {
-        pistep = (boost::math::float_next(abs(pinewweaks_minus[SpecificIndex])) - abs(pinewweaks_minus[SpecificIndex]));
-    }    
+        pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+    }     
     current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
 
-    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                        + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                        + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
                                                     + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                     + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
     if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
+        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
     }
-    tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    if (abs(tanbshift_minus) > 1.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-    }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //pi_weak_minus = pinewweaks_minus[6] - pistep;
+    tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+    if ((abs(mZ2shift_minus) > 1.0)) {
+        too_sensitive_flag_minus = true;
     } 
 
-    while ((!too_sensitive_flag) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0))) {
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        
+    while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0))) {
+        bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewweaks_minus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
+        // std::cout << "New " << paramName << " = " << pinewweaks_minus[SpecificIndex] << endl;
+        // std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
         vector<double> checkweaksols = pinewweaks_minus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
         piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1184,33 +1046,20 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         if (piminusEWSB == true) {
             piminusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
         }
-        // if (piminusEWSB == true) {
-        //     piminusEWSB = BFB_check(checkweaksols);
-        // }
         piminusNoCCB = CCB_Check(checkweaksols);
         if (!(piminusEWSB) || !(piminusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piminusNoCCB = false;
-            }
-        }
-        if (!(piminusNoCCB)) {
-            break;
-        } 
         vector<double> pioldweaks_minus = pinewweaks_minus;
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewweaks_minus[SpecificIndex] = pinewweaks_minus[SpecificIndex] - (2.0 * bigpistep * sqrt(abs(pinewweaks_minus[SpecificIndex]))) + (bigpistep * bigpistep);
+            pinewweaks_minus[SpecificIndex] = signed_square(pinewweaks_minus[SpecificIndex], bigpistep);
         } else {
-            pinewweaks_minus[SpecificIndex] = ((pinewweaks_minus[SpecificIndex]) - bigpistep);
+            pinewweaks_minus[SpecificIndex] += bigpistep;
         }
-        pinew_mZ2minus += copysign((2.0 * sqrt(pinew_mZ2minus)) + 1.0, mZ2shift_minus);
-        pinewweaks_minus[43] += (tanbshift_minus * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
+        pinew_mZ2minus += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+        pinewweaks_minus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((pinewweaks_minus[43] < 3.0) || (pinewweaks_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             piminusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1223,67 +1072,55 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         }        
 
         if (!piminusEWSB) {
-            // std::cout << "EWSpi issue in convergence loop" << endl;
             pinewweaks_minus[SpecificIndex] = pioldweaks_minus[SpecificIndex];
             break;
         }
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewweaks_minus[SpecificIndex]))) - sqrt(abs(pinewweaks_minus[SpecificIndex])));
+            pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
         } else {
-            pistep = (boost::math::float_next(abs(pinewweaks_minus[SpecificIndex])) - abs(pinewweaks_minus[SpecificIndex]));
-        }    
+            pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+        }      
         current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
     
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                           + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_minus) > 1.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //pi_weak_minus = pinewweaks_minus[6] - pistep;
+        tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
         } 
     }
     std::cout << paramName << "(total, minus) = " << pinewweaks_minus[SpecificIndex] << endl; 
     pi_TOTAL_weak_minus = pinewweaks_minus[SpecificIndex];
 
     if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewweaks_plus[SpecificIndex]))) - sqrt(abs(pinewweaks_plus[SpecificIndex])));
+        pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]);
     } else {
-        pistep = (boost::math::float_next(abs(pinewweaks_plus[SpecificIndex])) - abs(pinewweaks_plus[SpecificIndex]));
-    }    
+        pistepplus = (boost::math::float_next((pinewweaks_plus[SpecificIndex])) - (pinewweaks_plus[SpecificIndex]));
+    }     
     current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
 
-    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                        + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                        + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
                                                     + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                     + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
+    if (abs(mZ2shift_plus) > 1.0) {
+        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
     }
-    tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    if (abs(tanbshift_plus) > 1.0) {
-        tanbshift_plus = (current_derivatives[0] * pistep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
+    tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+    if ((abs(mZ2shift_plus) > 1.0)) {
+        too_sensitive_flag_plus = true;
     } 
 
-    while ((!too_sensitive_flag) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0))) {
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        
+    while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0))) {
+        bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
         // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewweaks_plus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
+        // std::cout << "New " << paramName << " = " << pinewweaks_plus[SpecificIndex] << endl;
+        // std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
         vector<double> checkweaksols = pinewweaks_plus;
         vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
         piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1291,33 +1128,20 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         if (piplusEWSB == true) {
             piplusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
         }
-        // if (piplusEWSB == true) {
-        //     piplusEWSB = BFB_check(checkweaksols);
-        // }
         piplusNoCCB = CCB_Check(checkweaksols);
         if (!(piplusEWSB) || !(piplusNoCCB)) {
             break;
         } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piplusNoCCB = false;
-            }
-        }
-        if (!(piplusNoCCB)) {
-            break;
-        } 
         vector<double> pioldweaks_plus = pinewweaks_plus;
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewweaks_plus[SpecificIndex] = pinewweaks_plus[SpecificIndex] + (2.0 * bigpistep * sqrt(abs(pinewweaks_plus[SpecificIndex]))) + (bigpistep * bigpistep);
+            pinewweaks_plus[SpecificIndex] = signed_square(pinewweaks_plus[SpecificIndex], bigpistep);
         } else {
-            pinewweaks_plus[SpecificIndex] = ((pinewweaks_plus[SpecificIndex]) - bigpistep);
+            pinewweaks_plus[SpecificIndex] += bigpistep;
         }
-        pinew_mZ2plus += copysign((2.0 * sqrt(pinew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        pinewweaks_plus[43] += (tanbshift_plus * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
+        pinew_mZ2plus += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0)  * (pinew_mZ2minus - (91.1876 * 91.1876)));
+        pinewweaks_plus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * tanbshift_plus / abs(mZ2shift_plus);
         // Now adjust Yukawas for next iteration.
         if ((pinewweaks_plus[43] < 3.0) || (pinewweaks_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
             piplusEWSB = false;
         } else {
             for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1330,54 +1154,43 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         }        
 
         if (!piplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
             pinewweaks_plus[SpecificIndex] = pioldweaks_plus[SpecificIndex];
             break;
         }
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewweaks_plus[SpecificIndex]))) - sqrt(abs(pinewweaks_plus[SpecificIndex])));
+            pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]);
         } else {
-            pistep = (boost::math::float_next(abs(pinewweaks_plus[SpecificIndex])) - abs(pinewweaks_plus[SpecificIndex]));
-        }    
+            pistepplus = (boost::math::float_next((pinewweaks_plus[SpecificIndex])) - (pinewweaks_plus[SpecificIndex]));
+        }      
         current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
     
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                           + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_plus) > 1.0) {
-            tanbshift_plus = (current_derivatives[0] * pistep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
+        tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
         } 
     }
     std::cout << paramName << "(total, plus) = " << pinewweaks_plus[SpecificIndex] << endl; 
     pi_TOTAL_weak_plus = pinewweaks_plus[SpecificIndex];
 
-    if ((abs(pi_TOTAL_weak_minus - pi_weak_minus) < 1.0e-12) && (abs(pi_TOTAL_weak_plus - pi_weak_plus) < 1.0e-12)) {
-        if (abs(pi_weak_minus) <= abs(pi_weak_plus)) {
-            pi_TOTAL_weak_minus = 0.1 * pi_weak_minus;
-            pi_TOTAL_weak_plus = 10.0 * pi_weak_plus;
-        } else {
-            pi_TOTAL_weak_minus = 10.0 * pi_weak_minus;
-            pi_TOTAL_weak_plus = 0.1 * pi_weak_plus;
-        }
-
-        std::cout << "General window established for " << paramName << " variation." << endl;
-
-        return {pi_weak_minus, pi_weak_plus, pi_TOTAL_weak_minus, pi_TOTAL_weak_plus};
+    if ((abs(pi_TOTAL_weak_minus - pi_weak_minus) < 1.0e-12)) {
+        pi_TOTAL_weak_minus = pi_weak_minus + (pistepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
     }
+    if ((abs(pi_TOTAL_weak_plus - pi_weak_plus) < 1.0e-12)) {
+        pi_TOTAL_weak_plus = pi_weak_plus + (pistepplus / abs(mZ2shift_plus));
+    }    
 
     std::cout << "General window established for " << paramName << " variation." << endl;
 
     return {pi_weak_minus, pi_weak_plus, pi_TOTAL_weak_minus, pi_TOTAL_weak_plus};
 }
+
 
 vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& current_mZ2, double& current_logQSUSY) {
     double t_target = log(500.0);
@@ -1420,23 +1233,23 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
                            + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    
+    double original_mZ2shift_minus = mZ2shift_minus;
     // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
     if (abs(mZ2shift_minus) > 1.0) {
         mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
     }
     double tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
     // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    bool too_sensitive_flag = false;
+    bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
     double mu_weak_minus, mu_weak_plus;
     if ((abs(mZ2shift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
+        too_sensitive_flag_minus = true;
         mu_weak_minus = munewweaks_minus[6] + mustepminus;
     } 
     // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
-    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
-        bigmustep = mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+    while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
+        bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
         // std::cout << "New mu = " << munewweaks_minus[6] << endl;
         // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
@@ -1472,8 +1285,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[6] = muoldweaks_minus[6];
             break;
         }
-        munew_mZ2minus += copysign(1.0, mZ2shift_minus);
-        munewweaks_minus[43] += tanbshift_minus / abs(mZ2shift_minus);
+        munew_mZ2minus += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * copysign(1.0, mZ2shift_minus);
+        munewweaks_minus[43] += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1508,7 +1321,7 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
         if ((abs(mZ2shift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high in ABDS minus shift routine" << endl;
-            too_sensitive_flag = true;
+            too_sensitive_flag_minus = true;
             //mu_weak_minus = munewweaks_minus[6] - mustep;
         } 
     }
@@ -1532,12 +1345,12 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     // std::cout << "tanb plus shift: " << tanbshift_plus << endl;
     if ((abs(mZ2shift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
+        too_sensitive_flag_plus = true;
         mu_weak_plus = munewweaks_plus[6] + (mustepplus / mZ2shift_plus);
     } 
     // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
-    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
-        bigmustep = mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+    while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
+        bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
         // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
         // std::cout << "New mu = " << munewweaks_plus[6] << endl;
         // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
@@ -1576,8 +1389,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[6] = muoldweaks_plus[6];
             break;
         }
-        munew_mZ2plus += copysign(1.0, (-1.0) * mZ2shift_minus);
-        munewweaks_plus[43] += tanbshift_plus / abs(mZ2shift_plus);
+        munew_mZ2plus += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * copysign(1.0, (-1.0) * (munew_mZ2minus - (91.1876 * 91.1876)));
+        munewweaks_plus[43] += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * tanbshift_plus / abs(mZ2shift_plus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1612,7 +1425,7 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
         if ((abs(mZ2shift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
-            too_sensitive_flag = true;
+            too_sensitive_flag_plus = true;
             //mu_weak_plus = munewweaks_plus[6] - mustep;
         } 
     }
@@ -1652,12 +1465,12 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
     if ((abs(mZ2shift_minus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
+        too_sensitive_flag_minus = true;
         //mu_weak_minus = munewweaks_minus[6] - mustep;
     } 
 
-    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0))) {
-        bigmustep = mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+    while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0))) {
+        bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
         // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
         // std::cout << "New mu = " << munewweaks_minus[6] << endl;
         // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
@@ -1696,8 +1509,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[6] = muoldweaks_minus[6];
             break;
         }
-        munew_mZ2minus += copysign(1.0, mZ2shift_minus);
-        munewweaks_minus[43] += tanbshift_minus / abs(mZ2shift_minus);
+        munew_mZ2minus += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * copysign(1.0, mZ2shift_minus);
+        munewweaks_minus[43] += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * tanbshift_minus / abs(mZ2shift_minus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1732,7 +1545,7 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
         if ((abs(mZ2shift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high in total minus" << endl;
-            too_sensitive_flag = true;
+            too_sensitive_flag_minus = true;
             //mu_weak_minus = munewweaks_minus[6] - mustep;
         } 
     }
@@ -1751,12 +1564,12 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
     if ((abs(mZ2shift_plus) > 1.0)) {
         // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
+        too_sensitive_flag_plus = true;
         mu_TOTAL_weak_plus = munewweaks_plus[6] + (mustepplus / abs(mZ2shift_plus));
     } 
 
-    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0))) {
-        bigmustep = mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+    while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0))) {
+        bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
         // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
         // std::cout << "New mu = " << munewweaks_plus[6] << endl;
         // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
@@ -1793,8 +1606,8 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[6] = muoldweaks_plus[6];
             break;
         }
-        munew_mZ2plus += copysign(1.0, (-1.0) * mZ2shift_minus);
-        munewweaks_plus[43] += tanbshift_plus / abs(mZ2shift_plus);
+        munew_mZ2plus += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * copysign(1.0, (-1.0) * (munew_mZ2minus - (91.1876 * 91.1876)));
+        munewweaks_plus[43] += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * tanbshift_plus / abs(mZ2shift_plus);
         // Now adjust Yukawas for next iteration.
         if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
             // std::cout << "Yukawas non-perturbative" << endl;
@@ -1829,7 +1642,7 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
         if ((abs(mZ2shift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
-            too_sensitive_flag = true;
+            too_sensitive_flag_plus = true;
             //mu_weak_plus = munewweaks_plus[6] - mustep;
         } 
     }
