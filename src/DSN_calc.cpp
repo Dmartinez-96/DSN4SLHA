@@ -6,6 +6,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <stdexcept>
 #include <boost/math/special_functions/next.hpp>
 #include "DSN_calc.hpp"
 #include "MSSM_RGE_solver.hpp"
@@ -31,6 +32,18 @@ double signum(double x) {
     }
 }
 
+double signed_square(double x2, double h) {
+    double signedsqrt = copysign(sqrt(abs(x2)), x2);
+    double shiftedvalue = signedsqrt + h;
+    double signedsquare;
+    if ((signum(signedsqrt) != signum(shiftedvalue))) {
+        signedsquare = (-1.0) * copysign(shiftedvalue * shiftedvalue, x2);
+    } else {
+        signedsquare = copysign(shiftedvalue * shiftedvalue, x2);
+    }
+    return signedsquare;
+}
+
 double soft_prob_calc(double x, int nPower) {
     return ((0.5 * x / (static_cast<double>(nPower) + 1.0))
             * ((signum(x) * (pow(x, nPower) - pow((-1.0) * x, nPower))) + pow(x, nPower) + pow((-1.0) * x, nPower)));
@@ -40,7 +53,7 @@ bool EWSB_Check(vector<double>& weak_boundary_conditions, vector<double>& radiat
     bool checkifEWSB = true;
 
     if (abs(2.0 * weak_boundary_conditions[42]) > abs((2.0 * pow(weak_boundary_conditions[6], 2.0)) + weak_boundary_conditions[25] + radiat_correcs[0] + weak_boundary_conditions[26] + radiat_correcs[1])) {
-        std::cout << "Scalar pot'l UFB at loop-level." << endl;
+        // std::cout << "Scalar pot'l UFB at loop-level." << endl;
         checkifEWSB = false;
     }
     return checkifEWSB;
@@ -48,9 +61,14 @@ bool EWSB_Check(vector<double>& weak_boundary_conditions, vector<double>& radiat
 
 bool CCB_Check(vector<double>& weak_boundary_conditions) {
     bool checkifNoCCB = true;
+    for (int i = 3; i < 6; ++i) {
+        if (weak_boundary_conditions[i] < 0) {
+            checkifNoCCB = false;
+        }
+    }
     for (int i = 27; i < 42; ++i) {
         if (weak_boundary_conditions[i] < 0) {
-            std::cout << "CCB minima" << endl;
+            // std::cout << "CCB minima" << endl;
             checkifNoCCB = false;
         }
     }
@@ -83,25 +101,25 @@ double calculate_approx_tanb(vector<double> weak_solutions, double explogQSUSY, 
     return tan(0.5 * (M_PI - asin(abs(2.0 * weak_solutions[42] / (weak_solutions[25] + weak_solutions[26] + calculateRadCorrs[0] + calculateRadCorrs[1] + (2.0 * weak_solutions[6] * weak_solutions[6]))))));
 }
 
-vector<double> single_var_deriv_approxes(vector<double>& original_GUT_conditions, double& fixed_mZ2_val, int idx_to_shift, double& logQSUSYval, double& logQGUTval) {
+vector<double> single_var_deriv_approxes(vector<double>& original_weak_conditions, double& fixed_mZ2_val, int idx_to_shift, double& logQSUSYval) {
     double p_orig, h_p, p_plus, p_minus, p_plusplus, p_minusminus;
     if (idx_to_shift == 42) {
-        p_orig = original_GUT_conditions[idx_to_shift] / original_GUT_conditions[6];
+        p_orig = original_weak_conditions[idx_to_shift] / original_weak_conditions[6];
         h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));//max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), 0.2), 1.0e-6);
         p_plus = p_orig + h_p;
         p_minus = p_orig - h_p;
         p_plusplus = p_plus + h_p;
         p_minusminus = p_minus - h_p;
     } else if ((idx_to_shift >= 25) && (idx_to_shift <= 41)) {
-        p_orig = sqrt(abs(original_GUT_conditions[idx_to_shift]));
+        p_orig = sqrt(abs(original_weak_conditions[idx_to_shift]));
         h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));
-        p_plus = copysign(pow(p_orig + h_p, 2.0), original_GUT_conditions[idx_to_shift]);
-        p_minus = copysign(pow(p_orig - h_p, 2.0), original_GUT_conditions[idx_to_shift]);
-        p_plusplus = copysign(pow(p_plus + h_p, 2.0), original_GUT_conditions[idx_to_shift]);
-        p_minusminus = copysign(pow(p_minus - h_p, 2.0), original_GUT_conditions[idx_to_shift]);
+        p_plus = copysign(pow(p_orig + h_p, 2.0), original_weak_conditions[idx_to_shift]);
+        p_minus = copysign(pow(p_orig - h_p, 2.0), original_weak_conditions[idx_to_shift]);
+        p_plusplus = copysign(pow(p_plus + h_p, 2.0), original_weak_conditions[idx_to_shift]);
+        p_minusminus = copysign(pow(p_minus - h_p, 2.0), original_weak_conditions[idx_to_shift]);
     }
     else {
-        p_orig = original_GUT_conditions[idx_to_shift];
+        p_orig = original_weak_conditions[idx_to_shift];
         h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));//max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), 0.2), 1.0e-6);
         p_plus = p_orig + h_p;
         p_minus = p_orig - h_p;
@@ -109,217 +127,206 @@ vector<double> single_var_deriv_approxes(vector<double>& original_GUT_conditions
         p_minusminus = p_minus - h_p;
     }
 
-    vector<double> newmZ2GUTs_plus = original_GUT_conditions;
-    vector<double> newmZ2GUTs_plusplus = original_GUT_conditions;
-    vector<double> newtanbGUTs_plus = original_GUT_conditions;
-    vector<double> newtanbGUTs_plusplus = original_GUT_conditions;
-    vector<double> newmZ2GUTs_minus = original_GUT_conditions;
-    vector<double> newmZ2GUTs_minusminus = original_GUT_conditions;
-    vector<double> newtanbGUTs_minus = original_GUT_conditions;
-    vector<double> newtanbGUTs_minusminus = original_GUT_conditions;
-    vector<double> newtanb_plus_p_plus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plusplus_p_plus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plus_p_plusplus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plusplus_p_plusplus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plus_p_minus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plusplus_p_minus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plus_p_minusminus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_plusplus_p_minusminus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minus_p_plus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minusminus_p_plus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minus_p_plusplus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minusminus_p_plusplus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minus_p_minus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minusminus_p_minus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minus_p_minusminus_GUTS = original_GUT_conditions;
-    vector<double> newtanb_minusminus_p_minusminus_GUTS = original_GUT_conditions;
+    vector<double> newmZ2weak_plus = original_weak_conditions;
+    vector<double> newmZ2weak_plusplus = original_weak_conditions;
+    vector<double> newtanbweak_plus = original_weak_conditions;
+    vector<double> newtanbweak_plusplus = original_weak_conditions;
+    vector<double> newmZ2weak_minus = original_weak_conditions;
+    vector<double> newmZ2weak_minusminus = original_weak_conditions;
+    vector<double> newtanbweak_minus = original_weak_conditions;
+    vector<double> newtanbweak_minusminus = original_weak_conditions;
+    vector<double> newtanb_plus_p_plus_weak = original_weak_conditions;
+    vector<double> newtanb_plusplus_p_plus_weak = original_weak_conditions;
+    vector<double> newtanb_plus_p_plusplus_weak = original_weak_conditions;
+    vector<double> newtanb_plusplus_p_plusplus_weak = original_weak_conditions;
+    vector<double> newtanb_plus_p_minus_weak = original_weak_conditions;
+    vector<double> newtanb_plusplus_p_minus_weak = original_weak_conditions;
+    vector<double> newtanb_plus_p_minusminus_weak = original_weak_conditions;
+    vector<double> newtanb_plusplus_p_minusminus_weak = original_weak_conditions;
+    vector<double> newtanb_minus_p_plus_weak = original_weak_conditions;
+    vector<double> newtanb_minusminus_p_plus_weak = original_weak_conditions;
+    vector<double> newtanb_minus_p_plusplus_weak = original_weak_conditions;
+    vector<double> newtanb_minusminus_p_plusplus_weak = original_weak_conditions;
+    vector<double> newtanb_minus_p_minus_weak = original_weak_conditions;
+    vector<double> newtanb_minusminus_p_minus_weak = original_weak_conditions;
+    vector<double> newtanb_minus_p_minusminus_weak = original_weak_conditions;
+    vector<double> newtanb_minusminus_p_minusminus_weak = original_weak_conditions;
 
-    double tanb_orig = original_GUT_conditions[43];
+    double tanb_orig = original_weak_conditions[43];
     double h_tanb = pow(10.25 * (boost::math::float_next(abs(tanb_orig)) - abs(tanb_orig)), (1.0 / 5.0));//pow(10.25 * (boost::math::float_next(abs(tanb_orig)) - abs(tanb_orig)), 0.2);
     
-    newtanbGUTs_plus[43] = tanb_orig + h_tanb;
-    newtanbGUTs_plusplus[43] = tanb_orig + (2.0 * h_tanb);
-    newtanb_plus_p_plus_GUTS[43] = tanb_orig + h_tanb;
-    newtanb_plus_p_plusplus_GUTS[43] = tanb_orig + h_tanb;
-    newtanb_plusplus_p_plus_GUTS[43] = tanb_orig + (2.0 * h_tanb);
-    newtanb_plusplus_p_plusplus_GUTS[43] = tanb_orig + (2.0 * h_tanb);
-    newtanb_plus_p_minus_GUTS[43] = tanb_orig + h_tanb;
-    newtanb_plus_p_minusminus_GUTS[43] = tanb_orig + h_tanb;
-    newtanb_plusplus_p_minus_GUTS[43] = tanb_orig + (2.0 * h_tanb);
-    newtanb_plusplus_p_minusminus_GUTS[43] = tanb_orig + (2.0 * h_tanb);
-    newtanbGUTs_minus[43] = tanb_orig - h_tanb;
-    newtanbGUTs_minusminus[43] = tanb_orig - (2.0 * h_tanb);
-    newtanb_minus_p_plus_GUTS[43] = tanb_orig - h_tanb;
-    newtanb_minus_p_plusplus_GUTS[43] = tanb_orig - h_tanb;
-    newtanb_minusminus_p_plus_GUTS[43] = tanb_orig - (2.0 * h_tanb);
-    newtanb_minusminus_p_plusplus_GUTS[43] = tanb_orig - (2.0 * h_tanb);
-    newtanb_minus_p_minus_GUTS[43] = tanb_orig - h_tanb;
-    newtanb_minus_p_minusminus_GUTS[43] = tanb_orig - h_tanb;
-    newtanb_minusminus_p_minus_GUTS[43] = tanb_orig - (2.0 * h_tanb);
-    newtanb_minusminus_p_minusminus_GUTS[43] = tanb_orig - (2.0 * h_tanb);
+    newtanbweak_plus[43] = tanb_orig + h_tanb;
+    newtanbweak_plusplus[43] = tanb_orig + (2.0 * h_tanb);
+    newtanb_plus_p_plus_weak[43] = tanb_orig + h_tanb;
+    newtanb_plus_p_plusplus_weak[43] = tanb_orig + h_tanb;
+    newtanb_plusplus_p_plus_weak[43] = tanb_orig + (2.0 * h_tanb);
+    newtanb_plusplus_p_plusplus_weak[43] = tanb_orig + (2.0 * h_tanb);
+    newtanb_plus_p_minus_weak[43] = tanb_orig + h_tanb;
+    newtanb_plus_p_minusminus_weak[43] = tanb_orig + h_tanb;
+    newtanb_plusplus_p_minus_weak[43] = tanb_orig + (2.0 * h_tanb);
+    newtanb_plusplus_p_minusminus_weak[43] = tanb_orig + (2.0 * h_tanb);
+    newtanbweak_minus[43] = tanb_orig - h_tanb;
+    newtanbweak_minusminus[43] = tanb_orig - (2.0 * h_tanb);
+    newtanb_minus_p_plus_weak[43] = tanb_orig - h_tanb;
+    newtanb_minus_p_plusplus_weak[43] = tanb_orig - h_tanb;
+    newtanb_minusminus_p_plus_weak[43] = tanb_orig - (2.0 * h_tanb);
+    newtanb_minusminus_p_plusplus_weak[43] = tanb_orig - (2.0 * h_tanb);
+    newtanb_minus_p_minus_weak[43] = tanb_orig - h_tanb;
+    newtanb_minus_p_minusminus_weak[43] = tanb_orig - h_tanb;
+    newtanb_minusminus_p_minus_weak[43] = tanb_orig - (2.0 * h_tanb);
+    newtanb_minusminus_p_minusminus_weak[43] = tanb_orig - (2.0 * h_tanb);
 
     // Adjust Yukawas at Q=mt=173.2 GeV for shifted tanb points
-    vector<double> weaksols_original = solveODEs(original_GUT_conditions, logQGUTval, logQSUSYval, -1.0e-6);
-    double wk_tanb = weaksols_original[43];
-    vector<double> mZsols_original = solveODEs(original_GUT_conditions, logQGUTval, log(173.2), -1.0e-6);
-    vector<double> mZsolstanb_plus = solveODEs(newtanbGUTs_plus, logQGUTval, log(173.2), -1.0e-6);
-    vector<double> mZsolstanb_minus = solveODEs(newtanbGUTs_minus, logQGUTval, log(173.2), -1.0e-6);
-    vector<double> mZsolstanb_plusplus = solveODEs(newtanbGUTs_plusplus, logQGUTval, log(173.2), -1.0e-6);
-    vector<double> mZsolstanb_minusminus = solveODEs(newtanbGUTs_minusminus, logQGUTval, log(173.2), -1.0e-6);
+    double wk_tanb = original_weak_conditions[43];
+    vector<double> weaksols_original = original_weak_conditions;
+    vector<double> weaksolstanb_plus = newtanbweak_plus;
+    vector<double> weaksolstanb_minus = newtanbweak_minus;
+    vector<double> weaksolstanb_plusplus = newtanbweak_plusplus;
+    vector<double> weaksolstanb_minusminus = newtanbweak_minusminus;
     for (int UpYukawaIndex = 7; UpYukawaIndex < 10; ++UpYukawaIndex) {
-        mZsolstanb_plus[UpYukawaIndex] *= sin(atan(mZsols_original[43])) / sin(atan(mZsolstanb_plus[43]));
-        mZsolstanb_plusplus[UpYukawaIndex] *= sin(atan(mZsols_original[43])) / sin(atan(mZsolstanb_plusplus[43]));
-        mZsolstanb_minus[UpYukawaIndex] *= sin(atan(mZsols_original[43])) / sin(atan(mZsolstanb_minus[43]));
-        mZsolstanb_minusminus[UpYukawaIndex] *= sin(atan(mZsols_original[43])) / sin(atan(mZsolstanb_minusminus[43]));
+        weaksolstanb_plus[UpYukawaIndex] *= sin(atan(weaksols_original[43])) / sin(atan(weaksolstanb_plus[43]));
+        weaksolstanb_plusplus[UpYukawaIndex] *= sin(atan(weaksols_original[43])) / sin(atan(weaksolstanb_plusplus[43]));
+        weaksolstanb_minus[UpYukawaIndex] *= sin(atan(weaksols_original[43])) / sin(atan(weaksolstanb_minus[43]));
+        weaksolstanb_minusminus[UpYukawaIndex] *= sin(atan(weaksols_original[43])) / sin(atan(weaksolstanb_minusminus[43]));
     }
     for (int DownYukawaIndex = 10; DownYukawaIndex < 16; ++DownYukawaIndex) {
-        mZsolstanb_plus[DownYukawaIndex] *= cos(atan(mZsols_original[43])) / cos(atan(mZsolstanb_plus[43]));
-        mZsolstanb_plusplus[DownYukawaIndex] *= cos(atan(mZsols_original[43])) / cos(atan(mZsolstanb_plusplus[43]));
-        mZsolstanb_minus[DownYukawaIndex] *= cos(atan(mZsols_original[43])) / cos(atan(mZsolstanb_minus[43]));
-        mZsolstanb_minusminus[DownYukawaIndex] *= cos(atan(mZsols_original[43])) / cos(atan(mZsolstanb_minusminus[43]));
+        weaksolstanb_plus[DownYukawaIndex] *= cos(atan(weaksols_original[43])) / cos(atan(weaksolstanb_plus[43]));
+        weaksolstanb_plusplus[DownYukawaIndex] *= cos(atan(weaksols_original[43])) / cos(atan(weaksolstanb_plusplus[43]));
+        weaksolstanb_minus[DownYukawaIndex] *= cos(atan(weaksols_original[43])) / cos(atan(weaksolstanb_minus[43]));
+        weaksolstanb_minusminus[DownYukawaIndex] *= cos(atan(weaksols_original[43])) / cos(atan(weaksolstanb_minusminus[43]));
     }
-    vector<double> newGUTyuks_tanb_plus = solveODEs(mZsolstanb_plus, log(173.2), logQGUTval, 1.0e-6);
-    vector<double> newGUTyuks_tanb_plusplus = solveODEs(mZsolstanb_plusplus, log(173.2), logQGUTval, 1.0e-6);
-    vector<double> newGUTyuks_tanb_minus = solveODEs(mZsolstanb_minus, log(173.2), logQGUTval, 1.0e-6);
-    vector<double> newGUTyuks_tanb_minusminus = solveODEs(mZsolstanb_minusminus, log(173.2), logQGUTval, 1.0e-6);
     for (int YukawaIndex = 7; YukawaIndex < 16; ++YukawaIndex) {
-        newtanbGUTs_plus[YukawaIndex] = newGUTyuks_tanb_plus[YukawaIndex];
-        newtanbGUTs_plusplus[YukawaIndex] = newGUTyuks_tanb_plusplus[YukawaIndex];
-        newtanb_plus_p_plus_GUTS[YukawaIndex] = newGUTyuks_tanb_plus[YukawaIndex];
-        newtanb_plus_p_plusplus_GUTS[YukawaIndex] = newGUTyuks_tanb_plus[YukawaIndex];
-        newtanb_plusplus_p_plus_GUTS[YukawaIndex] = newGUTyuks_tanb_plusplus[YukawaIndex];
-        newtanb_plusplus_p_plusplus_GUTS[YukawaIndex] = newGUTyuks_tanb_plusplus[YukawaIndex];
-        newtanb_plus_p_minus_GUTS[YukawaIndex] = newGUTyuks_tanb_plus[YukawaIndex];
-        newtanb_plus_p_minusminus_GUTS[YukawaIndex] = newGUTyuks_tanb_plus[YukawaIndex];
-        newtanb_plusplus_p_minus_GUTS[YukawaIndex] = newGUTyuks_tanb_plusplus[YukawaIndex];
-        newtanb_plusplus_p_minusminus_GUTS[YukawaIndex] = newGUTyuks_tanb_plusplus[YukawaIndex];
-        newtanbGUTs_minus[YukawaIndex] = newGUTyuks_tanb_minus[YukawaIndex];
-        newtanbGUTs_minusminus[YukawaIndex] = newGUTyuks_tanb_minusminus[YukawaIndex];
-        newtanb_minus_p_plus_GUTS[YukawaIndex] = newGUTyuks_tanb_minus[YukawaIndex];
-        newtanb_minus_p_plusplus_GUTS[YukawaIndex] = newGUTyuks_tanb_minus[YukawaIndex];
-        newtanb_minusminus_p_plus_GUTS[YukawaIndex] = newGUTyuks_tanb_minusminus[YukawaIndex];
-        newtanb_minusminus_p_plusplus_GUTS[YukawaIndex] = newGUTyuks_tanb_minusminus[YukawaIndex];
-        newtanb_minus_p_minus_GUTS[YukawaIndex] = newGUTyuks_tanb_minus[YukawaIndex];
-        newtanb_minus_p_minusminus_GUTS[YukawaIndex] = newGUTyuks_tanb_minus[YukawaIndex];
-        newtanb_minusminus_p_minus_GUTS[YukawaIndex] = newGUTyuks_tanb_minusminus[YukawaIndex];
-        newtanb_minusminus_p_minusminus_GUTS[YukawaIndex] = newGUTyuks_tanb_minusminus[YukawaIndex];
+        newtanbweak_plus[YukawaIndex] = weaksolstanb_plus[YukawaIndex];
+        newtanbweak_plusplus[YukawaIndex] = weaksolstanb_plusplus[YukawaIndex];
+        newtanb_plus_p_plus_weak[YukawaIndex] = weaksolstanb_plus[YukawaIndex];
+        newtanb_plus_p_plusplus_weak[YukawaIndex] = weaksolstanb_plus[YukawaIndex];
+        newtanb_plusplus_p_plus_weak[YukawaIndex] = weaksolstanb_plusplus[YukawaIndex];
+        newtanb_plusplus_p_plusplus_weak[YukawaIndex] = weaksolstanb_plusplus[YukawaIndex];
+        newtanb_plus_p_minus_weak[YukawaIndex] = weaksolstanb_plus[YukawaIndex];
+        newtanb_plus_p_minusminus_weak[YukawaIndex] = weaksolstanb_plus[YukawaIndex];
+        newtanb_plusplus_p_minus_weak[YukawaIndex] = weaksolstanb_plusplus[YukawaIndex];
+        newtanb_plusplus_p_minusminus_weak[YukawaIndex] = weaksolstanb_plusplus[YukawaIndex];
+        newtanbweak_minus[YukawaIndex] = weaksolstanb_minus[YukawaIndex];
+        newtanbweak_minusminus[YukawaIndex] = weaksolstanb_minusminus[YukawaIndex];
+        newtanb_minus_p_plus_weak[YukawaIndex] = weaksolstanb_minus[YukawaIndex];
+        newtanb_minus_p_plusplus_weak[YukawaIndex] = weaksolstanb_minus[YukawaIndex];
+        newtanb_minusminus_p_plus_weak[YukawaIndex] = weaksolstanb_minusminus[YukawaIndex];
+        newtanb_minusminus_p_plusplus_weak[YukawaIndex] = weaksolstanb_minusminus[YukawaIndex];
+        newtanb_minus_p_minus_weak[YukawaIndex] = weaksolstanb_minus[YukawaIndex];
+        newtanb_minus_p_minusminus_weak[YukawaIndex] = weaksolstanb_minus[YukawaIndex];
+        newtanb_minusminus_p_minus_weak[YukawaIndex] = weaksolstanb_minusminus[YukawaIndex];
+        newtanb_minusminus_p_minusminus_weak[YukawaIndex] = weaksolstanb_minusminus[YukawaIndex];
     }
-
-    vector<double> weaksolstanb_plus = solveODEs(newtanbGUTs_plus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minus = solveODEs(newtanbGUTs_minus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plusplus = solveODEs(newtanbGUTs_plusplus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minusminus = solveODEs(newtanbGUTs_minusminus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    
     double mZ2_tanb_plus = calculate_approx_mZ2(weaksolstanb_plus, exp(logQSUSYval), fixed_mZ2_val);
     double mZ2_tanb_minus = calculate_approx_mZ2(weaksolstanb_minus, exp(logQSUSYval), fixed_mZ2_val);
     double mZ2_tanb_plusplus = calculate_approx_mZ2(weaksolstanb_plusplus, exp(logQSUSYval), fixed_mZ2_val);
     double mZ2_tanb_minusminus = calculate_approx_mZ2(weaksolstanb_minusminus, exp(logQSUSYval), fixed_mZ2_val);
 
     if (idx_to_shift == 6) {
-        newmZ2GUTs_plus[42] = original_GUT_conditions[42] * p_plus / original_GUT_conditions[6];
-        newmZ2GUTs_plusplus[42] = original_GUT_conditions[42] * p_plusplus / original_GUT_conditions[6];
-        newtanb_plus_p_plus_GUTS[42] = original_GUT_conditions[42] * p_plus / original_GUT_conditions[6];
-        newtanb_plusplus_p_plus_GUTS[42] = original_GUT_conditions[42] * p_plus / original_GUT_conditions[6];
-        newtanb_plus_p_plusplus_GUTS[42] = original_GUT_conditions[42] * p_plusplus / original_GUT_conditions[6];
-        newtanb_plusplus_p_plusplus_GUTS[42] = original_GUT_conditions[42] * p_plusplus / original_GUT_conditions[6];
-        newtanb_minus_p_plus_GUTS[42] = original_GUT_conditions[42] * p_plus / original_GUT_conditions[6];
-        newtanb_minusminus_p_plus_GUTS[42] = original_GUT_conditions[42] * p_plus / original_GUT_conditions[6];
-        newtanb_minus_p_plusplus_GUTS[42] = original_GUT_conditions[42] * p_plusplus / original_GUT_conditions[6];
-        newtanb_minusminus_p_plusplus_GUTS[42] = original_GUT_conditions[42] * p_plusplus / original_GUT_conditions[6];
-        newmZ2GUTs_minus[42] = original_GUT_conditions[42] * p_minus / original_GUT_conditions[6];
-        newmZ2GUTs_minusminus[42] = original_GUT_conditions[42] * p_minusminus / original_GUT_conditions[6];
-        newtanb_plus_p_minus_GUTS[42] = original_GUT_conditions[42] * p_minus / original_GUT_conditions[6];
-        newtanb_plusplus_p_minus_GUTS[42] = original_GUT_conditions[42] * p_minus / original_GUT_conditions[6];
-        newtanb_plusplus_p_minusminus_GUTS[42] = original_GUT_conditions[42] * p_minusminus / original_GUT_conditions[6];
-        newtanb_plus_p_minusminus_GUTS[42] = original_GUT_conditions[42] * p_minusminus / original_GUT_conditions[6];
-        newtanb_minus_p_minus_GUTS[42] = original_GUT_conditions[42] * p_minus / original_GUT_conditions[6];
-        newtanb_minusminus_p_minus_GUTS[42] = original_GUT_conditions[42] * p_minus / original_GUT_conditions[6];
-        newtanb_minusminus_p_minusminus_GUTS[42] = original_GUT_conditions[42] * p_minusminus / original_GUT_conditions[6];
-        newtanb_minus_p_minusminus_GUTS[42] = original_GUT_conditions[42] * p_minusminus / original_GUT_conditions[6];
-        newmZ2GUTs_plus[6] = p_plus;
-        newmZ2GUTs_plusplus[6] = p_plusplus;
-        newtanb_plus_p_plus_GUTS[6] = p_plus;
-        newtanb_plusplus_p_plus_GUTS[6] = p_plus;
-        newtanb_plusplus_p_plusplus_GUTS[6] = p_plusplus;
-        newtanb_plus_p_plusplus_GUTS[6] = p_plusplus;
-        newtanb_minus_p_plus_GUTS[6] = p_plus;
-        newtanb_minusminus_p_plus_GUTS[6] = p_plus;
-        newtanb_minusminus_p_plusplus_GUTS[6] = p_plusplus;
-        newtanb_minus_p_plusplus_GUTS[6] = p_plusplus;
-        newmZ2GUTs_minus[6] = p_minus;
-        newmZ2GUTs_minusminus[6] = p_minusminus;
-        newtanb_plus_p_minus_GUTS[6] = p_minus;
-        newtanb_plusplus_p_minus_GUTS[6] = p_minus;
-        newtanb_plusplus_p_minusminus_GUTS[6] = p_minusminus;
-        newtanb_plus_p_minusminus_GUTS[6] = p_minusminus;
-        newtanb_minus_p_minus_GUTS[6] = p_minus;
-        newtanb_minusminus_p_minus_GUTS[6] = p_minus;
-        newtanb_minusminus_p_minusminus_GUTS[6] = p_minusminus;
-        newtanb_minus_p_minusminus_GUTS[6] = p_minusminus;
+        newmZ2weak_plus[42] = original_weak_conditions[42] * p_plus / original_weak_conditions[6];
+        newmZ2weak_plusplus[42] = original_weak_conditions[42] * p_plusplus / original_weak_conditions[6];
+        newtanb_plus_p_plus_weak[42] = original_weak_conditions[42] * p_plus / original_weak_conditions[6];
+        newtanb_plusplus_p_plus_weak[42] = original_weak_conditions[42] * p_plus / original_weak_conditions[6];
+        newtanb_plus_p_plusplus_weak[42] = original_weak_conditions[42] * p_plusplus / original_weak_conditions[6];
+        newtanb_plusplus_p_plusplus_weak[42] = original_weak_conditions[42] * p_plusplus / original_weak_conditions[6];
+        newtanb_minus_p_plus_weak[42] = original_weak_conditions[42] * p_plus / original_weak_conditions[6];
+        newtanb_minusminus_p_plus_weak[42] = original_weak_conditions[42] * p_plus / original_weak_conditions[6];
+        newtanb_minus_p_plusplus_weak[42] = original_weak_conditions[42] * p_plusplus / original_weak_conditions[6];
+        newtanb_minusminus_p_plusplus_weak[42] = original_weak_conditions[42] * p_plusplus / original_weak_conditions[6];
+        newmZ2weak_minus[42] = original_weak_conditions[42] * p_minus / original_weak_conditions[6];
+        newmZ2weak_minusminus[42] = original_weak_conditions[42] * p_minusminus / original_weak_conditions[6];
+        newtanb_plus_p_minus_weak[42] = original_weak_conditions[42] * p_minus / original_weak_conditions[6];
+        newtanb_plusplus_p_minus_weak[42] = original_weak_conditions[42] * p_minus / original_weak_conditions[6];
+        newtanb_plusplus_p_minusminus_weak[42] = original_weak_conditions[42] * p_minusminus / original_weak_conditions[6];
+        newtanb_plus_p_minusminus_weak[42] = original_weak_conditions[42] * p_minusminus / original_weak_conditions[6];
+        newtanb_minus_p_minus_weak[42] = original_weak_conditions[42] * p_minus / original_weak_conditions[6];
+        newtanb_minusminus_p_minus_weak[42] = original_weak_conditions[42] * p_minus / original_weak_conditions[6];
+        newtanb_minusminus_p_minusminus_weak[42] = original_weak_conditions[42] * p_minusminus / original_weak_conditions[6];
+        newtanb_minus_p_minusminus_weak[42] = original_weak_conditions[42] * p_minusminus / original_weak_conditions[6];
+        newmZ2weak_plus[6] = p_plus;
+        newmZ2weak_plusplus[6] = p_plusplus;
+        newtanb_plus_p_plus_weak[6] = p_plus;
+        newtanb_plusplus_p_plus_weak[6] = p_plus;
+        newtanb_plusplus_p_plusplus_weak[6] = p_plusplus;
+        newtanb_plus_p_plusplus_weak[6] = p_plusplus;
+        newtanb_minus_p_plus_weak[6] = p_plus;
+        newtanb_minusminus_p_plus_weak[6] = p_plus;
+        newtanb_minusminus_p_plusplus_weak[6] = p_plusplus;
+        newtanb_minus_p_plusplus_weak[6] = p_plusplus;
+        newmZ2weak_minus[6] = p_minus;
+        newmZ2weak_minusminus[6] = p_minusminus;
+        newtanb_plus_p_minus_weak[6] = p_minus;
+        newtanb_plusplus_p_minus_weak[6] = p_minus;
+        newtanb_plusplus_p_minusminus_weak[6] = p_minusminus;
+        newtanb_plus_p_minusminus_weak[6] = p_minusminus;
+        newtanb_minus_p_minus_weak[6] = p_minus;
+        newtanb_minusminus_p_minus_weak[6] = p_minus;
+        newtanb_minusminus_p_minusminus_weak[6] = p_minusminus;
+        newtanb_minus_p_minusminus_weak[6] = p_minusminus;
     } else if (idx_to_shift == 42) {
-        newmZ2GUTs_plus[42] = original_GUT_conditions[6] * p_plus;
-        newmZ2GUTs_plusplus[42] = original_GUT_conditions[6] * p_plusplus;
-        newtanb_plus_p_plus_GUTS[42] = original_GUT_conditions[6] * p_plus;
-        newtanb_plusplus_p_plus_GUTS[42] = original_GUT_conditions[6] * p_plus;
-        newtanb_plus_p_plusplus_GUTS[42] = original_GUT_conditions[6] * p_plusplus;
-        newtanb_plusplus_p_plusplus_GUTS[42] = original_GUT_conditions[6] * p_plusplus;
-        newtanb_minus_p_plus_GUTS[42] = original_GUT_conditions[6] * p_plus;
-        newtanb_minusminus_p_plus_GUTS[42] = original_GUT_conditions[6] * p_plus;
-        newtanb_minus_p_plusplus_GUTS[42] = original_GUT_conditions[6] * p_plusplus;
-        newtanb_minusminus_p_plusplus_GUTS[42] = original_GUT_conditions[6] * p_plusplus;
-        newmZ2GUTs_minus[42] = original_GUT_conditions[6] * p_minus;
-        newmZ2GUTs_minusminus[42] = original_GUT_conditions[6] * p_minusminus;
-        newtanb_plus_p_minus_GUTS[42] = original_GUT_conditions[6] * p_minus;
-        newtanb_plusplus_p_minus_GUTS[42] = original_GUT_conditions[6] * p_minus;
-        newtanb_plus_p_minusminus_GUTS[42] = original_GUT_conditions[6] * p_minusminus;
-        newtanb_plusplus_p_minusminus_GUTS[42] = original_GUT_conditions[6] * p_minusminus;
-        newtanb_minus_p_minus_GUTS[42] = original_GUT_conditions[6] * p_minus;
-        newtanb_minusminus_p_minus_GUTS[42] = original_GUT_conditions[6] * p_minus;
-        newtanb_minus_p_minusminus_GUTS[42] = original_GUT_conditions[6] * p_minusminus;
-        newtanb_minusminus_p_minusminus_GUTS[42] = original_GUT_conditions[6] * p_minusminus;
+        newmZ2weak_plus[42] = original_weak_conditions[6] * p_plus;
+        newmZ2weak_plusplus[42] = original_weak_conditions[6] * p_plusplus;
+        newtanb_plus_p_plus_weak[42] = original_weak_conditions[6] * p_plus;
+        newtanb_plusplus_p_plus_weak[42] = original_weak_conditions[6] * p_plus;
+        newtanb_plus_p_plusplus_weak[42] = original_weak_conditions[6] * p_plusplus;
+        newtanb_plusplus_p_plusplus_weak[42] = original_weak_conditions[6] * p_plusplus;
+        newtanb_minus_p_plus_weak[42] = original_weak_conditions[6] * p_plus;
+        newtanb_minusminus_p_plus_weak[42] = original_weak_conditions[6] * p_plus;
+        newtanb_minus_p_plusplus_weak[42] = original_weak_conditions[6] * p_plusplus;
+        newtanb_minusminus_p_plusplus_weak[42] = original_weak_conditions[6] * p_plusplus;
+        newmZ2weak_minus[42] = original_weak_conditions[6] * p_minus;
+        newmZ2weak_minusminus[42] = original_weak_conditions[6] * p_minusminus;
+        newtanb_plus_p_minus_weak[42] = original_weak_conditions[6] * p_minus;
+        newtanb_plusplus_p_minus_weak[42] = original_weak_conditions[6] * p_minus;
+        newtanb_plus_p_minusminus_weak[42] = original_weak_conditions[6] * p_minusminus;
+        newtanb_plusplus_p_minusminus_weak[42] = original_weak_conditions[6] * p_minusminus;
+        newtanb_minus_p_minus_weak[42] = original_weak_conditions[6] * p_minus;
+        newtanb_minusminus_p_minus_weak[42] = original_weak_conditions[6] * p_minus;
+        newtanb_minus_p_minusminus_weak[42] = original_weak_conditions[6] * p_minusminus;
+        newtanb_minusminus_p_minusminus_weak[42] = original_weak_conditions[6] * p_minusminus;
     } else {
-        newmZ2GUTs_plus[idx_to_shift] = p_plus;
-        newmZ2GUTs_plusplus[idx_to_shift] = p_plusplus;
-        newtanb_plus_p_plus_GUTS[idx_to_shift] = p_plus;
-        newtanb_plusplus_p_plus_GUTS[idx_to_shift] = p_plus;
-        newtanb_plus_p_plusplus_GUTS[idx_to_shift] = p_plusplus;
-        newtanb_plusplus_p_plusplus_GUTS[idx_to_shift] = p_plusplus;
-        newtanb_minus_p_plus_GUTS[idx_to_shift] = p_plus;
-        newtanb_minusminus_p_plus_GUTS[idx_to_shift] = p_plus;
-        newtanb_minusminus_p_plusplus_GUTS[idx_to_shift] = p_plusplus;
-        newtanb_minus_p_plusplus_GUTS[idx_to_shift] = p_plusplus;
-        newmZ2GUTs_minus[idx_to_shift] = p_minus;
-        newmZ2GUTs_minusminus[idx_to_shift] = p_minusminus;
-        newtanb_plus_p_minus_GUTS[idx_to_shift] = p_minus;
-        newtanb_plusplus_p_minus_GUTS[idx_to_shift] = p_minus;
-        newtanb_plus_p_minusminus_GUTS[idx_to_shift] = p_minusminus;
-        newtanb_plusplus_p_minusminus_GUTS[idx_to_shift] = p_minusminus;
-        newtanb_minus_p_minus_GUTS[idx_to_shift] = p_minus;
-        newtanb_minusminus_p_minus_GUTS[idx_to_shift] = p_minus;
-        newtanb_minus_p_minusminus_GUTS[idx_to_shift] = p_minusminus;
-        newtanb_minusminus_p_minusminus_GUTS[idx_to_shift] = p_minusminus;
+        newmZ2weak_plus[idx_to_shift] = p_plus;
+        newmZ2weak_plusplus[idx_to_shift] = p_plusplus;
+        newtanb_plus_p_plus_weak[idx_to_shift] = p_plus;
+        newtanb_plusplus_p_plus_weak[idx_to_shift] = p_plus;
+        newtanb_plus_p_plusplus_weak[idx_to_shift] = p_plusplus;
+        newtanb_plusplus_p_plusplus_weak[idx_to_shift] = p_plusplus;
+        newtanb_minus_p_plus_weak[idx_to_shift] = p_plus;
+        newtanb_minusminus_p_plus_weak[idx_to_shift] = p_plus;
+        newtanb_minusminus_p_plusplus_weak[idx_to_shift] = p_plusplus;
+        newtanb_minus_p_plusplus_weak[idx_to_shift] = p_plusplus;
+        newmZ2weak_minus[idx_to_shift] = p_minus;
+        newmZ2weak_minusminus[idx_to_shift] = p_minusminus;
+        newtanb_plus_p_minus_weak[idx_to_shift] = p_minus;
+        newtanb_plusplus_p_minus_weak[idx_to_shift] = p_minus;
+        newtanb_plus_p_minusminus_weak[idx_to_shift] = p_minusminus;
+        newtanb_plusplus_p_minusminus_weak[idx_to_shift] = p_minusminus;
+        newtanb_minus_p_minus_weak[idx_to_shift] = p_minus;
+        newtanb_minusminus_p_minus_weak[idx_to_shift] = p_minus;
+        newtanb_minus_p_minusminus_weak[idx_to_shift] = p_minusminus;
+        newtanb_minusminus_p_minusminus_weak[idx_to_shift] = p_minusminus;
     }
 
-    vector<double> weaksolsp_plus = solveODEs(newmZ2GUTs_plus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolsp_plusplus = solveODEs(newmZ2GUTs_plusplus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plus_p_plus = solveODEs(newtanb_plus_p_plus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plusplus_p_plus = solveODEs(newtanb_plusplus_p_plus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plus_p_plusplus = solveODEs(newtanb_plus_p_plusplus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plusplus_p_plusplus = solveODEs(newtanb_plusplus_p_plusplus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minus_p_plus = solveODEs(newtanb_minus_p_plus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minusminus_p_plus = solveODEs(newtanb_minusminus_p_plus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minus_p_plusplus = solveODEs(newtanb_minus_p_plusplus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minusminus_p_plusplus = solveODEs(newtanb_minusminus_p_plusplus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolsp_minus = solveODEs(newmZ2GUTs_minus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolsp_minusminus = solveODEs(newmZ2GUTs_minusminus, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plus_p_minus = solveODEs(newtanb_plus_p_minus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plusplus_p_minus = solveODEs(newtanb_plusplus_p_minus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plus_p_minusminus = solveODEs(newtanb_plus_p_minusminus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_plusplus_p_minusminus = solveODEs(newtanb_plusplus_p_minusminus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minus_p_minus = solveODEs(newtanb_minus_p_minus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minusminus_p_minus = solveODEs(newtanb_minusminus_p_minus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minus_p_minusminus = solveODEs(newtanb_minus_p_minusminus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
-    vector<double> weaksolstanb_minusminus_p_minusminus = solveODEs(newtanb_minusminus_p_minusminus_GUTS, logQGUTval, logQSUSYval, copysign(1.0e-6, logQSUSYval - logQGUTval));
+    vector<double> weaksolsp_plus = newmZ2weak_plus;
+    vector<double> weaksolsp_plusplus = newmZ2weak_plusplus;
+    vector<double> weaksolstanb_plus_p_plus = newtanb_plus_p_plus_weak;
+    vector<double> weaksolstanb_plusplus_p_plus = newtanb_plusplus_p_plus_weak;
+    vector<double> weaksolstanb_plus_p_plusplus = newtanb_plus_p_plusplus_weak;
+    vector<double> weaksolstanb_plusplus_p_plusplus = newtanb_plusplus_p_plusplus_weak;
+    vector<double> weaksolstanb_minus_p_plus = newtanb_minus_p_plus_weak;
+    vector<double> weaksolstanb_minusminus_p_plus = newtanb_minusminus_p_plus_weak;
+    vector<double> weaksolstanb_minus_p_plusplus = newtanb_minus_p_plusplus_weak;
+    vector<double> weaksolstanb_minusminus_p_plusplus = newtanb_minusminus_p_plusplus_weak;
+    vector<double> weaksolsp_minus = newmZ2weak_minus;
+    vector<double> weaksolsp_minusminus = newmZ2weak_minusminus;
+    vector<double> weaksolstanb_plus_p_minus = newtanb_plus_p_minus_weak;
+    vector<double> weaksolstanb_plusplus_p_minus = newtanb_plusplus_p_minus_weak;
+    vector<double> weaksolstanb_plus_p_minusminus = newtanb_plus_p_minusminus_weak;
+    vector<double> weaksolstanb_plusplus_p_minusminus = newtanb_plusplus_p_minusminus_weak;
+    vector<double> weaksolstanb_minus_p_minus = newtanb_minus_p_minus_weak;
+    vector<double> weaksolstanb_minusminus_p_minus = newtanb_minusminus_p_minus_weak;
+    vector<double> weaksolstanb_minus_p_minusminus = newtanb_minus_p_minusminus_weak;
+    vector<double> weaksolstanb_minusminus_p_minusminus = newtanb_minusminus_p_minusminus_weak;
         
     double mZ2_p_plus = calculate_approx_mZ2(weaksolsp_plus, exp(logQSUSYval), fixed_mZ2_val);
     double mZ2_p_plusplus = calculate_approx_mZ2(weaksolsp_plusplus, exp(logQSUSYval), fixed_mZ2_val);
@@ -370,24 +377,10 @@ vector<double> single_var_deriv_approxes(vector<double>& original_GUT_conditions
     return evaluated_derivs;
 }
 
-vector<double> get_F_G_vals(vector<double>& GUT_BCs, double& curr_mZ2, double& curr_logQSUSY, double& curr_logQGUT, int derivIndex) {
-    //vector<double> derivatives = single_var_deriv_approxes(GUT_BCs, curr_mZ2, derivIndex, curr_logQSUSY, curr_logQGUT);
-            
-    vector<double> weaksolution = solveODEs(GUT_BCs, curr_logQGUT, curr_logQSUSY, copysign(1.0e-6, (curr_logQSUSY - curr_logQGUT)));
-    vector<double> RadiatCorrs = radcorr_calc(weaksolution, exp(curr_logQSUSY), curr_mZ2);
-    
-    double myF = (1.0 / 2.0) - (((weaksolution[26] + RadiatCorrs[1] - ((weaksolution[25] + RadiatCorrs[0]) * pow(weaksolution[43], 2.0))) / (curr_mZ2 * (pow(weaksolution[43], 2.0) - 1.0))) - (weaksolution[6] * weaksolution[6] / curr_mZ2));
-    double myG = weaksolution[43] - tan(0.5 * (M_PI - asin(2.0 * weaksolution[42] / (weaksolution[25] + RadiatCorrs[0] + weaksolution[26] + RadiatCorrs[1] + (2.0 * pow(weaksolution[6], 2.0))))));
-    return {myF, myG};
-}
-
-vector<double> DSN_B_windows(vector<double>& GUT_boundary_conditions, double& current_mZ2, double& current_logQSUSY, double& current_logQGUT) {
-    double t_target = log(500.0);
-    vector<double> BnewGUTs_plus = GUT_boundary_conditions;
-    vector<double> BnewGUTs_minus = GUT_boundary_conditions;
-    double BcurrentlogQGUT = current_logQGUT;
+vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& current_mZ2, double& current_logQSUSY) {
+    vector<double> Bnewweaks_plus = Wk_boundary_conditions;
+    vector<double> Bnewweaks_minus = Wk_boundary_conditions;
     double BcurrentlogQSUSY = current_logQSUSY;
-    double BnewlogQGUT = current_logQGUT;
     double BnewlogQSUSY = current_logQSUSY;
     double Bnew_mZ2plus = current_mZ2;
     double Bnew_mZ2minus = current_mZ2;
@@ -396,479 +389,404 @@ vector<double> DSN_B_windows(vector<double>& GUT_boundary_conditions, double& cu
     bool BplusNoCCB = true;
     bool BplusEWSB = true;
 
-    double Bplus = BnewGUTs_plus[42] / GUT_boundary_conditions[6];
+    double Bplus = Bnewweaks_plus[42] / Wk_boundary_conditions[6];
     double newBplus = Bplus;
-    double tanbplus = BnewGUTs_plus[43];
+    double tanbplus = Bnewweaks_plus[43];
     double newtanbplus = tanbplus;
 
-    double Bminus = BnewGUTs_minus[42] / GUT_boundary_conditions[6];
+    double Bminus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
     double newBminus = Bminus;
-    double tanbminus = BnewGUTs_minus[43];
+    double tanbminus = Bnewweaks_minus[43];
     double newtanbminus = tanbminus;
-    double muGUT_original = GUT_boundary_conditions[6];
+    double muGUT_original = Wk_boundary_conditions[6];
 
     // First compute width of ABDS window
     double lambdaB = 0.5;
     double B_least_Sq_Tol = 1.0e-2;
     double prev_fB = std::numeric_limits<double>::max();
     double curr_lsq_eval = std::numeric_limits<double>::max();
-    vector<double> current_derivatives = single_var_deriv_approxes(BnewGUTs_minus, Bnew_mZ2minus, 42, BnewlogQSUSY, BnewlogQGUT);
-    for (double deriv_value : current_derivatives) {
-        //std::cout << "Derivative: " << deriv_value << endl;
-        if (isnan(deriv_value) || isinf(deriv_value)) {
-            BminusEWSB = false;
+    try {
+        vector<double> current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
+        for (double deriv_value : current_derivatives) {
+            //std::cout << "Derivative: " << deriv_value << endl;
+            if (isnan(deriv_value) || isinf(deriv_value)) {
+                BminusEWSB = false;
+            }
         }
-    }
-    double Bstep, bigBstep;
-    Bstep = (boost::math::float_next(abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]);
+        double Bstepplus, Bstepminus, bigBstep;
+        Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
+            
+        double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                            + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         
-    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    
-    std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
-    }
-    double tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-    }
-    bool too_sensitive_flag = false;
-    double B_GUT_minus, B_GUT_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        B_GUT_minus = (BnewGUTs_minus[42] / GUT_boundary_conditions[6]) - Bstep;
-    } 
-    // B convergence becomes bad when B is small (i.e. < 10 GeV), so cutoff at abs(B) = 10 GeV
-    while ((!too_sensitive_flag) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (45.5938 * 45.5938)) && (Bnew_mZ2minus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
-        // std::cout << "New B = " << BnewGUTs_minus[6] << endl;
-        // std::cout << "New tanb = " << BnewGUTs_minus[43] << endl;
-        vector<double> checkweaksols = solveODEs(BnewGUTs_minus, BcurrentlogQGUT, BcurrentlogQSUSY, copysign(1.0e-6, (BcurrentlogQSUSY - BcurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
-        BminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (BminusEWSB == true) {
-            BminusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
+        // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
         }
-        BminusNoCCB = CCB_Check(checkweaksols);
-        if (!(BminusEWSB) || !(BminusNoCCB)) {
-            break;
+        double tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+        
+        bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
+        double B_weak_minus, B_weak_plus;
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
+            B_weak_minus = (Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + Bstepminus;
         } 
-        if (!(BminusNoCCB)) {
-            break;
-        } 
-        // std::cout << "B step size = " << Bstep << endl;
-        vector<double> BoldGUTs_minus = BnewGUTs_minus;
-        BnewGUTs_minus[42] = ((BnewGUTs_minus[42] / GUT_boundary_conditions[6]) - bigBstep) * GUT_boundary_conditions[6];
-                
-        if (!(BminusEWSB)) {
-            BnewGUTs_minus[42] = BoldGUTs_minus[42];
-            break;
-        }
-        Bnew_mZ2minus += copysign((2.0 * sqrt(Bnew_mZ2minus)) + 1.0, mZ2shift_minus);
-        BnewGUTs_minus[43] += (tanbshift_minus * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
-        // Now adjust Yukawas for next iteration.
-        if ((BnewGUTs_minus[43] < 3.0) || (BnewGUTs_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            BminusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(BoldGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(BnewGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
+        // B convergence becomes bad when B is small (i.e. < 10 GeV), so cutoff at abs(B) = 10 GeV
+        while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (45.5938 * 45.5938)) && (Bnew_mZ2minus < (364.7504 * 364.7504)))) {
+            bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
+            // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
+            // std::cout << "New B = " << Bnewweaks_minus[42] / Bnewweaks_minus[6] << endl;
+            // std::cout << "New tanb = " << Bnewweaks_minus[43] << endl;
+            vector<double> checkweaksols = Bnewweaks_minus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
+            BminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (BminusEWSB == true) {
+                BminusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
+            }
+            BminusNoCCB = CCB_Check(checkweaksols);
+            if (!(BminusEWSB) || !(BminusNoCCB)) {
+                break;
+            } 
+            if (!(BminusNoCCB)) {
+                break;
+            } 
+            vector<double> Boldweaks_minus = Bnewweaks_minus;
+            Bnewweaks_minus[42] = ((Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
+                    
+            if (!(BminusEWSB)) {
+                Bnewweaks_minus[42] = Boldweaks_minus[42];
+                break;
+            }
+            Bnew_mZ2minus += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+            Bnewweaks_minus[43] += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
+            // Now adjust Yukawas for next iteration.
+            if ((Bnewweaks_minus[43] < 3.0) || (Bnewweaks_minus[43] > 60.0)) {
+                BminusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        Bnewweaks_minus[YukIndx] *= sin(atan(Boldweaks_minus[43])) / sin(atan(Bnewweaks_minus[43]));
+                    } else {
+                        Bnewweaks_minus[YukIndx] *= cos(atan(Boldweaks_minus[43])) / cos(atan(Bnewweaks_minus[43]));
+                    }
                 }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                BnewGUTs_minus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
+            }        
 
-        if (!BminusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            BnewGUTs_minus[42] = BoldGUTs_minus[42];
-            BnewGUTs_minus[43] = BoldGUTs_minus[43];
-            break;
+            if (!BminusEWSB) {
+                // std::cout << "EWSB issue in convergence loop" << endl;
+                Bnewweaks_minus[42] = Boldweaks_minus[42];
+                Bnewweaks_minus[43] = Boldweaks_minus[43];
+                break;
+            }
+            Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
+            current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
+        
+            mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                            + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_minus) > 1.0) {
+                mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
+            }
+            tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+            if ((abs(mZ2shift_minus) > 1.0)) {
+                too_sensitive_flag_minus = true;
+            } 
         }
-        Bstep = (boost::math::float_next(abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]);
-        current_derivatives = single_var_deriv_approxes(BnewGUTs_minus, Bnew_mZ2minus, 42, BnewlogQSUSY, BnewlogQGUT);
-    
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
-        }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_GUT_minus = BnewGUTs_minus[6] - Bstep;
-        } 
-    }
-    std::cout << "B(ABDS, minus) = " << BnewGUTs_minus[42] / GUT_boundary_conditions[6] << endl; 
-    
-    B_GUT_minus = BnewGUTs_minus[42] / GUT_boundary_conditions[6];
-    Bstep = (boost::math::float_next(abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]);
-    current_derivatives = single_var_deriv_approxes(BnewGUTs_plus, Bnew_mZ2plus, 42, BnewlogQSUSY, BnewlogQGUT);
-    
-    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    double tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
+        std::cout << "B(ABDS, minus) = " << Bnewweaks_minus[42] / Wk_boundary_conditions[6] << endl; 
+        
+        B_weak_minus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
+        Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
+        current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
+        
+        double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                            + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        double tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
 
-    std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
-    }
-    std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * Bstep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        B_GUT_plus = (BnewGUTs_plus[42] / GUT_boundary_conditions[6]) + Bstep;
-    }
-    // B convergence becomes bad when B is small (i.e. < 10 GeV), so cutoff at abs(B) = 10 GeV
-    while ((!too_sensitive_flag) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (45.5938 * 45.5938)) && (Bnew_mZ2plus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
-        // std::cout << "New B = " << BnewGUTs_plus[6] << endl;
-        // std::cout << "New tanb = " << BnewGUTs_plus[43] << endl;
-        vector<double> checkweaksols = solveODEs(BnewGUTs_plus, BcurrentlogQGUT, BcurrentlogQSUSY, copysign(1.0e-6, (BcurrentlogQSUSY - BcurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
-        BplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (BplusEWSB == true) {
-            BplusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
         }
-        BplusNoCCB = CCB_Check(checkweaksols);
-        if (!(BplusEWSB) || !(BplusNoCCB)) {
-            break;
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
+            B_weak_plus = (Bnewweaks_plus[42] / Bnewweaks_plus[6]) + (Bstepplus);
         } 
-        if (!(BplusNoCCB)) {
-            break;
-        } 
-        // std::cout << "B step size = " << Bstep << endl;
-        vector<double> BoldGUTs_plus = BnewGUTs_plus;
-        BnewGUTs_plus[42] = ((BnewGUTs_plus[42] / GUT_boundary_conditions[6]) + bigBstep) * GUT_boundary_conditions[6];
-                
-        if (!(BplusEWSB)) {
-            BnewGUTs_plus[42] = BoldGUTs_plus[42];
-            break;
-        }
-        Bnew_mZ2plus += copysign((2.0 * sqrt(Bnew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        BnewGUTs_plus[43] += (tanbshift_plus * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
-        // Now adjust Yukawas for next iteration.
-        if ((BnewGUTs_plus[43] < 3.0) || (BnewGUTs_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            BplusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(BoldGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(BnewGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
+        while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (45.5938 * 45.5938)) && (Bnew_mZ2plus < (364.7504 * 364.7504)))) {
+            bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
+            
+            // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
+            // std::cout << "New B = " << Bnewweaks_plus[42] / Bnewweaks_plus[6] << endl;
+            // std::cout << "New tanb = " << Bnewweaks_plus[43] << endl;
+            vector<double> checkweaksols = Bnewweaks_plus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
+            BplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (BplusEWSB == true) {
+                BplusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
+            }
+            BplusNoCCB = CCB_Check(checkweaksols);
+            if (!(BplusEWSB) || !(BplusNoCCB)) {
+                break;
+            } 
+            if (!(BplusNoCCB)) {
+                break;
+            } 
+            vector<double> Boldweaks_plus = Bnewweaks_plus;
+            Bnewweaks_plus[42] = ((Bnewweaks_plus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
+                    
+            if (!(BplusEWSB)) {
+                Bnewweaks_plus[42] = Boldweaks_plus[42];
+                break;
+            }
+            Bnew_mZ2plus += abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0) * (Bnew_mZ2minus - (91.1876 * 91.1876)));
+            Bnewweaks_plus[43] += (tanbshift_plus * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
+            // Now adjust Yukawas for next iteration.
+            if ((Bnewweaks_plus[43] < 3.0) || (Bnewweaks_plus[43] > 60.0)) {
+                BplusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        Bnewweaks_plus[YukIndx] *= sin(atan(Boldweaks_plus[43])) / sin(atan(Bnewweaks_plus[43]));
+                    } else {
+                        Bnewweaks_plus[YukIndx] *= cos(atan(Boldweaks_plus[43])) / cos(atan(Bnewweaks_plus[43]));
+                    }
                 }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                BnewGUTs_plus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
+            }        
 
-        if (!BplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            BnewGUTs_plus[42] = BoldGUTs_plus[42];
-            BnewGUTs_plus[43] = BoldGUTs_plus[43];
-            break;
+            if (!BplusEWSB) {
+                Bnewweaks_plus[42] = Boldweaks_plus[42];
+                Bnewweaks_plus[43] = Boldweaks_plus[43];
+                break;
+            }
+            Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
+            current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
+        
+            mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                            + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_plus) > 1.0) {
+                mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
+            }
+            tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
+            
+            if ((abs(mZ2shift_plus) > 1.0)) {
+                too_sensitive_flag_plus = true;
+            } 
         }
-        Bstep = (boost::math::float_next(abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]);
-        current_derivatives = single_var_deriv_approxes(BnewGUTs_plus, Bnew_mZ2plus, 42, BnewlogQSUSY, BnewlogQGUT);
-    
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
+        std::cout << "B(ABDS, plus) = " << Bnewweaks_plus[42] / Wk_boundary_conditions[6] << endl; 
+        
+        B_weak_plus = Bnewweaks_plus[42] / Wk_boundary_conditions[6];
+        
+        std::cout << "ABDS window established for B variation." << endl;
+
+        double B_TOTAL_weak_minus, B_TOTAL_weak_plus;
+        
+        Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
+        current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
+
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                            + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
         }
-        tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * Bstep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_GUT_plus = BnewGUTs_plus[6] - Bstep;
+        tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+        
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
         } 
-    }
-    std::cout << "B(ABDS, plus) = " << BnewGUTs_plus[42] / GUT_boundary_conditions[6] << endl; 
-    
-    B_GUT_plus = BnewGUTs_plus[42] / GUT_boundary_conditions[6];
-    
-    std::cout << "ABDS window established for B variation." << endl;
 
-    bool ABDSminuscheck = (BminusEWSB && BminusNoCCB); 
-    bool ABDSpluscheck = (BplusEWSB && BplusNoCCB);
-    bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
-    double B_TOTAL_GUT_minus, B_TOTAL_GUT_plus;
-    if ((!(total_ABDScheck)) || too_sensitive_flag) {
-        if (abs(B_GUT_minus) <= abs(B_GUT_plus)) {
-            B_TOTAL_GUT_minus = 0.1 * B_GUT_minus;//pow(10.0, -0.5) * B_GUT_minus;
-            B_TOTAL_GUT_plus = 10.0 * B_GUT_plus;//pow(10.0, 0.5) * B_GUT_plus;
-        } else {
-            B_TOTAL_GUT_minus = 10.0 * B_GUT_minus;//pow(10.0, 0.5) * B_GUT_minus;
-            B_TOTAL_GUT_plus = 0.1 * B_GUT_plus;//pow(10.0, -0.5) * B_GUT_plus;
+        while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0))) {
+            bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
+            // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
+            // std::cout << "New B = " << Bnewweaks_minus[42] / Bnewweaks_minus[6] << endl;
+            // std::cout << "New tanb = " << Bnewweaks_minus[43] << endl;
+            vector<double> checkweaksols = Bnewweaks_minus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
+            BminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (BminusEWSB == true) {
+                BminusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
+            }
+            BminusNoCCB = CCB_Check(checkweaksols);
+            if (!(BminusEWSB) || !(BminusNoCCB)) {
+                break;
+            } 
+            if (!(BminusNoCCB)) {
+                break;
+            } 
+            vector<double> Boldweaks_minus = Bnewweaks_minus;
+            Bnewweaks_minus[42] = ((Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
+                    
+            if (!(BminusEWSB)) {
+                Bnewweaks_minus[42] = Boldweaks_minus[42];
+                break;
+            }
+            Bnew_mZ2minus += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+            Bnewweaks_minus[43] += abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
+            // Now adjust Yukawas for next iteration.
+            if ((Bnewweaks_minus[43] < 3.0) || (Bnewweaks_minus[43] > 60.0)) {
+                BminusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        Bnewweaks_minus[YukIndx] *= sin(atan(Boldweaks_minus[43])) / sin(atan(Bnewweaks_minus[43]));
+                    } else {
+                        Bnewweaks_minus[YukIndx] *= cos(atan(Boldweaks_minus[43])) / cos(atan(Bnewweaks_minus[43]));
+                    }
+                }
+            }        
+
+            if (!BminusEWSB) {
+                Bnewweaks_minus[42] = Boldweaks_minus[42];
+                Bnewweaks_minus[43] = Boldweaks_minus[43];
+                break;
+            }
+            Bstepminus = (boost::math::float_prior((Bnewweaks_minus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_minus[42] / Wk_boundary_conditions[6]));
+            current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
+        
+            mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus))
+                            + (0.5 * Bstepminus * Bstepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_minus) > 1.0) {
+                mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
+            }
+            tanbshift_minus = (current_derivatives[0] * Bstepminus) + (0.5 * current_derivatives[1] * Bstepminus * Bstepminus);
+            if ((abs(mZ2shift_minus) > 1.0)) {
+                too_sensitive_flag_minus = true;
+            } 
+        }
+        std::cout << "B(total, minus) = " << Bnewweaks_minus[42] / Wk_boundary_conditions[6] << endl; 
+        B_TOTAL_weak_minus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
+
+        Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
+        current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
+
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                            + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
+        }
+        tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
+        
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
+            B_TOTAL_weak_plus = Bnewweaks_plus[6] + (Bstepplus / abs(mZ2shift_plus));
+        } 
+
+        while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0))) {
+            bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
+            // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
+            // std::cout << "New B = " << Bnewweaks_plus[42] / Bnewweaks_plus[6] << endl;
+            // std::cout << "New tanb = " << Bnewweaks_plus[43] << endl;
+            
+            vector<double> checkweaksols = Bnewweaks_plus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
+            BplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (BplusEWSB == true) {
+                BplusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
+            }
+            BplusNoCCB = CCB_Check(checkweaksols);
+            if (!(BplusEWSB) || !(BplusNoCCB)) {
+                break;
+            } 
+            if (!(BplusNoCCB)) {
+                break;
+            } 
+            vector<double> Boldweaks_plus = Bnewweaks_plus;
+            Bnewweaks_plus[42] = ((Bnewweaks_plus[42] / Wk_boundary_conditions[6]) + bigBstep) * Wk_boundary_conditions[6];
+                    
+            if (!(BplusEWSB)) {
+                Bnewweaks_plus[42] = Boldweaks_plus[42];
+                break;
+            }
+            Bnew_mZ2plus += abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0) * (Bnew_mZ2minus - (91.1876 * 91.1876)));
+            Bnewweaks_plus[43] += (tanbshift_plus * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
+            // Now adjust Yukawas for next iteration.
+            if ((Bnewweaks_plus[43] < 3.0) || (Bnewweaks_plus[43] > 60.0)) {
+                BplusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        Bnewweaks_plus[YukIndx] *= sin(atan(Boldweaks_plus[43])) / sin(atan(Bnewweaks_plus[43]));
+                    } else {
+                        Bnewweaks_plus[YukIndx] *= cos(atan(Boldweaks_plus[43])) / cos(atan(Bnewweaks_plus[43]));
+                    }
+                }
+            }        
+
+            if (!BplusEWSB) {
+                Bnewweaks_plus[42] = Boldweaks_plus[42];
+                Bnewweaks_plus[43] = Boldweaks_plus[43];
+                break;
+            }
+            Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
+            current_derivatives = single_var_deriv_approxes(Bnewweaks_plus, Bnew_mZ2plus, 42, BnewlogQSUSY);
+        
+            mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus))
+                            + (0.5 * Bstepplus * Bstepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_plus) > 1.0) {
+                mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepplus));
+            }
+            tanbshift_plus = (current_derivatives[0] * Bstepplus) + (0.5 * current_derivatives[1] * Bstepplus * Bstepplus);
+            
+            if ((abs(mZ2shift_plus) > 1.0)) {
+                too_sensitive_flag_plus = true;
+            } 
+        }
+        std::cout << "B(total, plus) = " << Bnewweaks_plus[42] / Wk_boundary_conditions[6] << endl; 
+        B_TOTAL_weak_plus = Bnewweaks_plus[42] / Wk_boundary_conditions[6];
+
+        if ((abs(B_TOTAL_weak_minus - B_weak_minus) < 1.0e-12)) {
+            B_TOTAL_weak_minus = B_weak_minus + (Bstepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+        }
+        if ((abs(B_TOTAL_weak_plus - B_weak_plus) < 1.0e-12)) {
+            B_TOTAL_weak_plus = B_weak_plus + (Bstepplus / abs(mZ2shift_plus));
         }
 
         std::cout << "General window established for B variation." << endl;
 
-        return {B_GUT_minus, B_GUT_plus, B_TOTAL_GUT_minus, B_TOTAL_GUT_plus};
+        return {B_weak_minus, B_weak_plus, B_TOTAL_weak_minus, B_TOTAL_weak_plus};
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Runtime error in DSN B window calculation: " << e.what() << std::endl;
+        std::cerr << "Approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]),
+                boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]))};
+    } catch (const std::exception& e) {
+        std::cerr << "Numerical error in DSN B window calculation: " << e.what() << std::endl;
+        std::cerr << "Approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]),
+                boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]))};
+    } catch (...) {
+        std::cerr << "Unknown error in DSN B window calculation, approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]),
+                boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]))};
     }
-    Bstep = (boost::math::float_next(abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]);
-    current_derivatives = single_var_deriv_approxes(BnewGUTs_minus, Bnew_mZ2minus, 42, BnewlogQSUSY, BnewlogQGUT);
-
-    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                        + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
-    }
-    tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-    }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //B_GUT_minus = BnewGUTs_minus[6] - Bstep;
-    } 
-
-    while ((!too_sensitive_flag) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (5.0)))) {
-        int numStepsDone = 0;
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
-        // std::cout << "New B = " << BnewGUTs_minus[6] << endl;
-        // std::cout << "New tanb = " << BnewGUTs_minus[43] << endl;
-        vector<double> checkweaksols = solveODEs(BnewGUTs_minus, BcurrentlogQGUT, BcurrentlogQSUSY, copysign(1.0e-6, (BcurrentlogQSUSY - BcurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
-        BminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (BminusEWSB == true) {
-            BminusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
-        }
-        BminusNoCCB = CCB_Check(checkweaksols);
-        if (!(BminusEWSB) || !(BminusNoCCB)) {
-            break;
-        } 
-        if (!(BminusNoCCB)) {
-            break;
-        } 
-        // std::cout << "B step size = " << Bstep << endl;
-        vector<double> BoldGUTs_minus = BnewGUTs_minus;
-        BnewGUTs_minus[42] = ((BnewGUTs_minus[42] / GUT_boundary_conditions[6]) - bigBstep) * GUT_boundary_conditions[6];
-                
-        if (!(BminusEWSB)) {
-            BnewGUTs_minus[42] = BoldGUTs_minus[42];
-            break;
-        }
-        Bnew_mZ2minus += copysign((2.0 * sqrt(Bnew_mZ2minus)) + 1.0, mZ2shift_minus);
-        BnewGUTs_minus[43] += (tanbshift_minus * ((2.0 * sqrt(Bnew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
-        // Now adjust Yukawas for next iteration.
-        if ((BnewGUTs_minus[43] < 3.0) || (BnewGUTs_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            BminusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(BoldGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(BnewGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                BnewGUTs_minus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!BminusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            BnewGUTs_minus[42] = BoldGUTs_minus[42];
-            BnewGUTs_minus[43] = BoldGUTs_minus[43];
-            break;
-        }
-        Bstep = (boost::math::float_next(abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_minus[42] / GUT_boundary_conditions[6]);
-        current_derivatives = single_var_deriv_approxes(BnewGUTs_minus, Bnew_mZ2minus, 42, BnewlogQSUSY, BnewlogQGUT);
-    
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * Bstep));
-        }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * Bstep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(Bnew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_GUT_minus = BnewGUTs_minus[6] - Bstep;
-        } 
-    }
-    std::cout << "B(total, minus) = " << BnewGUTs_minus[42] / GUT_boundary_conditions[6] << endl; 
-    B_TOTAL_GUT_minus = BnewGUTs_minus[42] / GUT_boundary_conditions[6];
-
-    Bstep = (boost::math::float_next(abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]);
-    current_derivatives = single_var_deriv_approxes(BnewGUTs_plus, Bnew_mZ2plus, 42, BnewlogQSUSY, BnewlogQGUT);
-
-    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                        + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
-    }
-    tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * Bstep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //B_GUT_plus = BnewGUTs_plus[6] - Bstep;
-    } 
-
-    while ((!too_sensitive_flag) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (5.0)))) {
-        int numStepsDone = 0;
-        bigBstep = Bstep * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
-        // std::cout << "New B = " << BnewGUTs_plus[6] << endl;
-        // std::cout << "New tanb = " << BnewGUTs_plus[43] << endl;
-        vector<double> checkweaksols = solveODEs(BnewGUTs_plus, BcurrentlogQGUT, BcurrentlogQSUSY, copysign(1.0e-6, (BcurrentlogQSUSY - BcurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
-        BplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (BplusEWSB == true) {
-            BplusEWSB = Hessian_check(checkweaksols, exp(BnewlogQSUSY));
-        }
-        BplusNoCCB = CCB_Check(checkweaksols);
-        if (!(BplusEWSB) || !(BplusNoCCB)) {
-            break;
-        } 
-        if (!(BplusNoCCB)) {
-            break;
-        } 
-        // std::cout << "B step size = " << Bstep << endl;
-        vector<double> BoldGUTs_plus = BnewGUTs_plus;
-        BnewGUTs_plus[42] = ((BnewGUTs_plus[42] / GUT_boundary_conditions[6]) + bigBstep) * GUT_boundary_conditions[6];
-                
-        if (!(BplusEWSB)) {
-            BnewGUTs_plus[42] = BoldGUTs_plus[42];
-            break;
-        }
-        Bnew_mZ2plus += copysign((2.0 * sqrt(Bnew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        BnewGUTs_plus[43] += (tanbshift_plus * ((2.0 * sqrt(Bnew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
-        // Now adjust Yukawas for next iteration.
-        if ((BnewGUTs_plus[43] < 3.0) || (BnewGUTs_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            BplusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(BoldGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(BnewGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                BnewGUTs_plus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!BplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            BnewGUTs_plus[42] = BoldGUTs_plus[42];
-            BnewGUTs_plus[43] = BoldGUTs_plus[43];
-            break;
-        }
-        Bstep = (boost::math::float_next(abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6])) - abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]));// * abs(BnewGUTs_plus[42] / GUT_boundary_conditions[6]);
-        current_derivatives = single_var_deriv_approxes(BnewGUTs_plus, Bnew_mZ2plus, 42, BnewlogQSUSY, BnewlogQGUT);
-    
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep))
-                           + (0.5 * Bstep * Bstep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstep));
-        }
-        tanbshift_plus = (current_derivatives[0] * Bstep) + (0.5 * current_derivatives[1] * Bstep * Bstep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * Bstep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(Bnew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //B_GUT_plus = BnewGUTs_plus[6] - Bstep;
-        } 
-    }
-    std::cout << "B(total, plus) = " << BnewGUTs_plus[42] / GUT_boundary_conditions[6] << endl; 
-    B_TOTAL_GUT_plus = BnewGUTs_plus[42] / GUT_boundary_conditions[6];
-
-    if ((abs(B_TOTAL_GUT_minus - B_GUT_minus) < 1.0e-12) && (abs(B_TOTAL_GUT_plus - B_GUT_plus) < 1.0e-12)) {
-        if (abs(B_GUT_minus) <= abs(B_GUT_plus)) {
-            B_TOTAL_GUT_minus = 0.1 * B_GUT_minus;//pow(10.0, -0.5) * B_GUT_minus;
-            B_TOTAL_GUT_plus = 10.0 * B_GUT_plus;//pow(10.0, 0.5) * B_GUT_plus;
-        } else {
-            B_TOTAL_GUT_minus = 10.0 * B_GUT_minus;//pow(10.0, 0.5) * B_GUT_minus;
-            B_TOTAL_GUT_plus = 0.1 * B_GUT_plus;//pow(10.0, -0.5) * B_GUT_plus;
-        }
-
-        std::cout << "General window established for B variation." << endl;
-
-        return {B_GUT_minus, B_GUT_plus, B_TOTAL_GUT_minus, B_TOTAL_GUT_plus};
-    }
-
-    std::cout << "General window established for B variation." << endl;
-
-    return {B_GUT_minus, B_GUT_plus, B_TOTAL_GUT_minus, B_TOTAL_GUT_plus};
 }
 
-vector<double> DSN_specific_windows(vector<double>& GUT_boundary_conditions, double& current_mZ2, double& current_logQSUSY, double& current_logQGUT, int SpecificIndex) {
+vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, double& current_mZ2, double& current_logQSUSY, int SpecificIndex) {
     double t_target = log(500.0);
-    vector<double> pinewGUTs_plus = GUT_boundary_conditions;
-    vector<double> pinewGUTs_minus = GUT_boundary_conditions;
-    double picurrentlogQGUT = current_logQGUT;
+    vector<double> pinewweaks_plus = Wk_boundary_conditions;
+    vector<double> pinewweaks_minus = Wk_boundary_conditions;
     double picurrentlogQSUSY = current_logQSUSY;
-    double pinewlogQGUT = current_logQGUT;
     double pinewlogQSUSY = current_logQSUSY;
     double pinew_mZ2plus = current_mZ2;
     double pinew_mZ2minus = current_mZ2;
@@ -937,531 +855,397 @@ vector<double> DSN_specific_windows(vector<double>& GUT_boundary_conditions, dou
         paramName = "mE3^2";
     }
 
-    double piplus = pinewGUTs_plus[SpecificIndex];
+    double piplus = pinewweaks_plus[SpecificIndex];
     double newpiplus = piplus;
-    double tanbplus = pinewGUTs_plus[43];
+    double tanbplus = pinewweaks_plus[43];
     double newtanbplus = tanbplus;
 
-    double piminus = pinewGUTs_minus[SpecificIndex];
+    double piminus = pinewweaks_minus[SpecificIndex];
     double newpiminus = piminus;
-    double tanbminus = pinewGUTs_minus[43];
+    double tanbminus = pinewweaks_minus[43];
     double newtanbminus = tanbminus;
-
-    // First compute width of ABDS window
-    double lambdapi = 0.5;
-    double pi_least_Sq_Tol = 1.0e-2;
-    vector<double> current_derivatives = single_var_deriv_approxes(pinewGUTs_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-    for (double deriv_value : current_derivatives) {
-        //std::cout << "Derivative: " << deriv_value << endl;
-        if (isnan(deriv_value) || isinf(deriv_value)) {
-            piminusEWSB = false;
-        }
-    }
-    double pistep, bigpistep;
-    if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_minus[SpecificIndex]))) - sqrt(abs(pinewGUTs_minus[SpecificIndex])));
-    } else {
-        pistep = (boost::math::float_next(abs(pinewGUTs_minus[SpecificIndex])) - abs(pinewGUTs_minus[SpecificIndex]));
-    }    
-    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    
-    std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
-    }
-    double tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-    }
-    bool too_sensitive_flag = false;
-    double pi_GUT_minus, pi_GUT_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        pi_GUT_minus = (pinewGUTs_minus[SpecificIndex]) - pistep;
-    } 
-    while ((!too_sensitive_flag) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (45.5938 * 45.5938)) && (pinew_mZ2minus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        
-        // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewGUTs_minus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewGUTs_minus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
-        vector<double> checkweaksols = solveODEs(pinewGUTs_minus, picurrentlogQGUT, picurrentlogQSUSY, copysign(1.0e-6, (picurrentlogQSUSY - picurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
-        piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (piminusEWSB == true) {
-            piminusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
-        }
-        // if (piminusEWSB == true) {
-        //     piminusEWSB = BFB_check(checkweaksols);
-        // }
-        piminusNoCCB = CCB_Check(checkweaksols);
-        if (!(piminusEWSB) || !(piminusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piminusNoCCB = false;
+    try {
+        // First compute width of ABDS window
+        vector<double> current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
+        for (double deriv_value : current_derivatives) {
+            if (isnan(deriv_value) || isinf(deriv_value)) {
+                piminusEWSB = false;
             }
         }
-        if (!(piminusNoCCB)) {
-            break;
-        } 
-        vector<double> pioldGUTs_minus = pinewGUTs_minus;
+        double pistepplus, pistepminus, bigpistep;
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewGUTs_minus[SpecificIndex] = pinewGUTs_minus[SpecificIndex] - (2.0 * bigpistep * sqrt(abs(pinewGUTs_minus[SpecificIndex]))) + (bigpistep * bigpistep);
+            pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
         } else {
-            pinewGUTs_minus[SpecificIndex] = ((pinewGUTs_minus[SpecificIndex]) - bigpistep);
-        }
-        pinew_mZ2minus += copysign((2.0 * sqrt(pinew_mZ2minus)) + 1.0, mZ2shift_minus);
-        pinewGUTs_minus[43] += (tanbshift_minus * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
-        // Now adjust Yukawas for next iteration.
-        if ((pinewGUTs_minus[43] < 3.0) || (pinewGUTs_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            piminusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(pioldGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(pinewGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                pinewGUTs_minus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!piminusEWSB) {
-            // std::cout << "EWSpi issue in convergence loop" << endl;
-            pinewGUTs_minus[SpecificIndex] = pioldGUTs_minus[SpecificIndex];
-            break;
-        }
-        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_minus[SpecificIndex]))) - sqrt(abs(pinewGUTs_minus[SpecificIndex])));
-        } else {
-            pistep = (boost::math::float_next(abs(pinewGUTs_minus[SpecificIndex])) - abs(pinewGUTs_minus[SpecificIndex]));
+            pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
         }    
-        current_derivatives = single_var_deriv_approxes(pinewGUTs_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-    
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                            + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
+        }
+        double tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+        bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
+        double pi_weak_minus, pi_weak_plus;
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
+            pi_weak_minus = (pinewweaks_minus[SpecificIndex]) + pistepminus;
+        } 
+        while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (45.5938 * 45.5938)) && (pinew_mZ2minus < (364.7504 * 364.7504)))) {
+            bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
+            // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
+            // std::cout << "New " << paramName << " = " << pinewweaks_minus[SpecificIndex] << endl;
+            // std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
+            vector<double> checkweaksols = pinewweaks_minus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
+            piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (piminusEWSB == true) {
+                piminusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
+            }
+            piminusNoCCB = CCB_Check(checkweaksols);
+            if (!(piminusEWSB) || !(piminusNoCCB)) {
+                break;
+            } 
+            vector<double> pioldweaks_minus = pinewweaks_minus;
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pinewweaks_minus[SpecificIndex] = signed_square(pinewweaks_minus[SpecificIndex], bigpistep);
+            } else {
+                pinewweaks_minus[SpecificIndex] += bigpistep;
+            }
+            pinew_mZ2minus += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+            pinewweaks_minus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
+            // Now adjust Yukawas for next iteration.
+            if ((pinewweaks_minus[43] < 3.0) || (pinewweaks_minus[43] > 60.0)) {
+                piminusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        pinewweaks_minus[YukIndx] *= sin(atan(pioldweaks_minus[43])) / sin(atan(pinewweaks_minus[43]));
+                    } else {
+                        pinewweaks_minus[YukIndx] *= cos(atan(pioldweaks_minus[43])) / cos(atan(pinewweaks_minus[43]));
+                    }
+                }
+            }        
+
+            if (!piminusEWSB) {
+                pinewweaks_minus[SpecificIndex] = pioldweaks_minus[SpecificIndex];
+                break;
+            }
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
+            } else {
+                pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+            }      
+            current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
+        
+            mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                            + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
+                mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
+            }
+            tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+            if ((abs(mZ2shift_minus) > 1.0)) {
+                too_sensitive_flag_minus = true;
+            } 
+        }
+        std::cout << paramName << "(ABDS, minus) = " << pinewweaks_minus[SpecificIndex] << endl; 
+        pi_weak_minus = pinewweaks_minus[SpecificIndex];
+
+        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+            pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
+        } else {
+            pistepplus = (boost::math::float_next((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+        }   
+        current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
+        
+        double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                            + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        double tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
+        }
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
+            pi_weak_plus = (pinewweaks_plus[SpecificIndex]) + pistepplus;
+        }
+        while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (45.5938 * 45.5938)) && (pinew_mZ2plus < (364.7504 * 364.7504)))) {
+            bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
+            // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
+            // std::cout << "New " << paramName << " = " << pinewweaks_plus[SpecificIndex] << endl;
+            // std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
+            vector<double> checkweaksols = pinewweaks_plus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
+            piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (piplusEWSB == true) {
+                piplusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
+            }
+            piplusNoCCB = CCB_Check(checkweaksols);
+            if (!(piplusEWSB) || !(piplusNoCCB)) {
+                break;
+            } 
+            vector<double> pioldweaks_plus = pinewweaks_plus;
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pinewweaks_plus[SpecificIndex] = signed_square(pinewweaks_plus[SpecificIndex], bigpistep);
+            } else {
+                pinewweaks_plus[SpecificIndex] += bigpistep;
+            }
+            pinew_mZ2plus += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0) * (pinew_mZ2minus - (91.1876 * 91.1876)));
+            pinewweaks_plus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * tanbshift_plus / abs(mZ2shift_plus);
+            // Now adjust Yukawas for next iteration.
+            if ((pinewweaks_plus[43] < 3.0) || (pinewweaks_plus[43] > 60.0)) {
+                piplusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        pinewweaks_plus[YukIndx] *= sin(atan(pioldweaks_plus[43])) / sin(atan(pinewweaks_plus[43]));
+                    } else {
+                        pinewweaks_plus[YukIndx] *= cos(atan(pioldweaks_plus[43])) / cos(atan(pinewweaks_plus[43]));
+                    }
+                }
+            }        
+
+            if (!piplusEWSB) {
+                pinewweaks_plus[SpecificIndex] = pioldweaks_plus[SpecificIndex];
+                break;
+            }
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]);
+            } else {
+                pistepplus = (boost::math::float_next((pinewweaks_plus[SpecificIndex])) - (pinewweaks_plus[SpecificIndex]));
+            }      
+            current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
+        
+            mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                            + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
+                mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
+            }
+            tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+            if ((abs(mZ2shift_plus) > 1.0)) {
+                too_sensitive_flag_plus = true;
+            } 
+        }
+        std::cout << paramName << "(ABDS, plus) = " << pinewweaks_plus[SpecificIndex] << endl; 
+        pi_weak_plus = pinewweaks_plus[SpecificIndex];
+        
+        std::cout << "ABDS window established for " << paramName << " variation." << endl;
+
+        double pi_TOTAL_weak_minus, pi_TOTAL_weak_plus;
+
+        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+            pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
+        } else {
+            pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+        }     
+        current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
+
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                            + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
         }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //pi_GUT_minus = pinewGUTs_minus[6] - pistep;
+        tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            too_sensitive_flag_minus = true;
         } 
-    }
-    std::cout << paramName << "(ABDS, minus) = " << pinewGUTs_minus[SpecificIndex] << endl; 
-    pi_GUT_minus = pinewGUTs_minus[SpecificIndex];
 
-    if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_plus[SpecificIndex]))) - sqrt(abs(pinewGUTs_plus[SpecificIndex])));
-    } else {
-        pistep = (boost::math::float_next(abs(pinewGUTs_plus[SpecificIndex])) - abs(pinewGUTs_plus[SpecificIndex]));
-    }    
-    current_derivatives = single_var_deriv_approxes(pinewGUTs_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-    
-    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    double tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-
-    std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
-    }
-    std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * pistep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        pi_GUT_plus = (pinewGUTs_plus[SpecificIndex]) + pistep;
-    }
-    while ((!too_sensitive_flag) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (45.5938 * 45.5938)) && (pinew_mZ2plus < (364.7504 * 364.7504)))) {
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        
-        // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewGUTs_plus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewGUTs_plus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
-        vector<double> checkweaksols = solveODEs(pinewGUTs_plus, picurrentlogQGUT, picurrentlogQSUSY, copysign(1.0e-6, (picurrentlogQSUSY - picurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
-        piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (piplusEWSB == true) {
-            piplusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
-        }
-        // if (piplusEWSB == true) {
-        //     piplusEWSB = BFB_check(checkweaksols);
-        // }
-        piplusNoCCB = CCB_Check(checkweaksols);
-        if (!(piplusEWSB) || !(piplusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piplusNoCCB = false;
+        while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0))) {
+            bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
+            // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
+            // std::cout << "New " << paramName << " = " << pinewweaks_minus[SpecificIndex] << endl;
+            // std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
+            vector<double> checkweaksols = pinewweaks_minus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
+            piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (piminusEWSB == true) {
+                piminusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
             }
-        }
-        if (!(piplusNoCCB)) {
-            break;
-        } 
-        vector<double> pioldGUTs_plus = pinewGUTs_plus;
-        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewGUTs_plus[SpecificIndex] = pinewGUTs_plus[SpecificIndex] + (2.0 * bigpistep * sqrt(abs(pinewGUTs_plus[SpecificIndex]))) + (bigpistep * bigpistep);
-        } else {
-            pinewGUTs_plus[SpecificIndex] = ((pinewGUTs_plus[SpecificIndex]) - bigpistep);
-        }
-        pinew_mZ2plus += copysign((2.0 * sqrt(pinew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        pinewGUTs_plus[43] += (tanbshift_plus * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
-        // Now adjust Yukawas for next iteration.
-        if ((pinewGUTs_plus[43] < 3.0) || (pinewGUTs_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            piplusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(pioldGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(pinewGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
+            piminusNoCCB = CCB_Check(checkweaksols);
+            if (!(piminusEWSB) || !(piminusNoCCB)) {
+                break;
+            } 
+            vector<double> pioldweaks_minus = pinewweaks_minus;
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pinewweaks_minus[SpecificIndex] = signed_square(pinewweaks_minus[SpecificIndex], bigpistep);
+            } else {
+                pinewweaks_minus[SpecificIndex] += bigpistep;
+            }
+            pinew_mZ2minus += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * copysign(1.0, mZ2shift_minus);
+            pinewweaks_minus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * tanbshift_minus / abs(mZ2shift_minus);
+            // Now adjust Yukawas for next iteration.
+            if ((pinewweaks_minus[43] < 3.0) || (pinewweaks_minus[43] > 60.0)) {
+                piminusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        pinewweaks_minus[YukIndx] *= sin(atan(pioldweaks_minus[43])) / sin(atan(pinewweaks_minus[43]));
+                    } else {
+                        pinewweaks_minus[YukIndx] *= cos(atan(pioldweaks_minus[43])) / cos(atan(pinewweaks_minus[43]));
+                    }
                 }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                pinewGUTs_plus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
+            }        
 
-        if (!piplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            pinewGUTs_plus[SpecificIndex] = pioldGUTs_plus[SpecificIndex];
-            break;
+            if (!piminusEWSB) {
+                pinewweaks_minus[SpecificIndex] = pioldweaks_minus[SpecificIndex];
+                break;
+            }
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pistepminus = (boost::math::float_prior(copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_minus[SpecificIndex])), pinewweaks_minus[SpecificIndex]);
+            } else {
+                pistepminus = (boost::math::float_prior((pinewweaks_minus[SpecificIndex])) - (pinewweaks_minus[SpecificIndex]));
+            }      
+            current_derivatives = single_var_deriv_approxes(pinewweaks_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY);
+        
+            mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus))
+                            + (0.5 * pistepminus * pistepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
+                mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepminus));
+            }
+            tanbshift_minus = (current_derivatives[0] * pistepminus) + (0.5 * current_derivatives[1] * pistepminus * pistepminus);
+            if ((abs(mZ2shift_minus) > 1.0)) {
+                too_sensitive_flag_minus = true;
+            } 
         }
+        std::cout << paramName << "(total, minus) = " << pinewweaks_minus[SpecificIndex] << endl; 
+        pi_TOTAL_weak_minus = pinewweaks_minus[SpecificIndex];
+
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_plus[SpecificIndex]))) - sqrt(abs(pinewGUTs_plus[SpecificIndex])));
+            pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]);
         } else {
-            pistep = (boost::math::float_next(abs(pinewGUTs_plus[SpecificIndex])) - abs(pinewGUTs_plus[SpecificIndex]));
-        }    
-        current_derivatives = single_var_deriv_approxes(pinewGUTs_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-    
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
-        }
-        tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * pistep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-        } 
-    }
-    std::cout << paramName << "(ABDS, plus) = " << pinewGUTs_plus[SpecificIndex] << endl; 
-    pi_GUT_plus = pinewGUTs_plus[SpecificIndex];
-    
-    std::cout << "ABDS window established for " << paramName << " variation." << endl;
+            pistepplus = (boost::math::float_next((pinewweaks_plus[SpecificIndex])) - (pinewweaks_plus[SpecificIndex]));
+        }     
+        current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
 
-    bool ABDSminuscheck = (piminusEWSB && piminusNoCCB); 
-    bool ABDSpluscheck = (piplusEWSB && piplusNoCCB);
-    bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
-    double pi_TOTAL_GUT_minus, pi_TOTAL_GUT_plus;
-    if (!(total_ABDScheck) || too_sensitive_flag) {
-        if (abs(pi_GUT_minus) <= abs(pi_GUT_plus)) {
-            pi_TOTAL_GUT_minus = 0.1 * pi_TOTAL_GUT_minus;
-            pi_TOTAL_GUT_plus = 10.0 * pi_TOTAL_GUT_plus;
-        } else {
-            pi_TOTAL_GUT_minus = 10.0 * pi_TOTAL_GUT_minus;
-            pi_TOTAL_GUT_plus = 0.1 * pi_TOTAL_GUT_plus;
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                            + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
         }
+        tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            too_sensitive_flag_plus = true;
+        } 
+
+        while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0))) {
+            bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
+            // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
+            // std::cout << "New " << paramName << " = " << pinewweaks_plus[SpecificIndex] << endl;
+            // std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
+            vector<double> checkweaksols = pinewweaks_plus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
+            piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (piplusEWSB == true) {
+                piplusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
+            }
+            piplusNoCCB = CCB_Check(checkweaksols);
+            if (!(piplusEWSB) || !(piplusNoCCB)) {
+                break;
+            } 
+            vector<double> pioldweaks_plus = pinewweaks_plus;
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pinewweaks_plus[SpecificIndex] = signed_square(pinewweaks_plus[SpecificIndex], bigpistep);
+            } else {
+                pinewweaks_plus[SpecificIndex] += bigpistep;
+            }
+            pinew_mZ2plus += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * copysign(1.0, (-1.0)  * (pinew_mZ2minus - (91.1876 * 91.1876)));
+            pinewweaks_plus[43] += abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * tanbshift_plus / abs(mZ2shift_plus);
+            // Now adjust Yukawas for next iteration.
+            if ((pinewweaks_plus[43] < 3.0) || (pinewweaks_plus[43] > 60.0)) {
+                piplusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        pinewweaks_plus[YukIndx] *= sin(atan(pioldweaks_plus[43])) / sin(atan(pinewweaks_plus[43]));
+                    } else {
+                        pinewweaks_plus[YukIndx] *= cos(atan(pioldweaks_plus[43])) / cos(atan(pinewweaks_plus[43]));
+                    }
+                }
+            }        
+
+            if (!piplusEWSB) {
+                pinewweaks_plus[SpecificIndex] = pioldweaks_plus[SpecificIndex];
+                break;
+            }
+            if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
+                pistepplus = (boost::math::float_next(copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]))) - copysign(sqrt(abs(pinewweaks_plus[SpecificIndex])), pinewweaks_plus[SpecificIndex]);
+            } else {
+                pistepplus = (boost::math::float_next((pinewweaks_plus[SpecificIndex])) - (pinewweaks_plus[SpecificIndex]));
+            }      
+            current_derivatives = single_var_deriv_approxes(pinewweaks_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY);
+        
+            mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus))
+                            + (0.5 * pistepplus * pistepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
+                mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistepplus));
+            }
+            tanbshift_plus = (current_derivatives[0] * pistepplus) + (0.5 * current_derivatives[1] * pistepplus * pistepplus);
+            if ((abs(mZ2shift_plus) > 1.0)) {
+                too_sensitive_flag_plus = true;
+            } 
+        }
+        std::cout << paramName << "(total, plus) = " << pinewweaks_plus[SpecificIndex] << endl; 
+        pi_TOTAL_weak_plus = pinewweaks_plus[SpecificIndex];
+
+        if ((abs(pi_TOTAL_weak_minus - pi_weak_minus) < 1.0e-12)) {
+            pi_TOTAL_weak_minus = pi_weak_minus + (pistepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+        }
+        if ((abs(pi_TOTAL_weak_plus - pi_weak_plus) < 1.0e-12)) {
+            pi_TOTAL_weak_plus = pi_weak_plus + (pistepplus / abs(mZ2shift_plus));
+        }    
 
         std::cout << "General window established for " << paramName << " variation." << endl;
 
-        return {pi_GUT_minus, pi_GUT_plus, pi_TOTAL_GUT_minus, pi_TOTAL_GUT_plus};
+        return {pi_weak_minus, pi_weak_plus, pi_TOTAL_weak_minus, pi_TOTAL_weak_plus};
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Runtime error in DSN " << paramName << " window calculation: " << e.what() << std::endl;
+        std::cerr << "Approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[SpecificIndex]),
+                boost::math::float_next(Wk_boundary_conditions[SpecificIndex]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[SpecificIndex])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[SpecificIndex]))};
+    } catch (const std::exception& e) {
+        std::cerr << "Numerical error in DSN " << paramName << " window calculation: " << e.what() << std::endl;
+        std::cerr << "Approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[SpecificIndex]),
+                boost::math::float_next(Wk_boundary_conditions[SpecificIndex]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[SpecificIndex])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[SpecificIndex]))};
+    } catch (...) {
+        std::cerr << "Unknown error in DSN " << paramName << " window calculation, approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[SpecificIndex]),
+                boost::math::float_next(Wk_boundary_conditions[SpecificIndex]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[SpecificIndex])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[SpecificIndex]))};
     }
-
-    if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_minus[SpecificIndex]))) - sqrt(abs(pinewGUTs_minus[SpecificIndex])));
-    } else {
-        pistep = (boost::math::float_next(abs(pinewGUTs_minus[SpecificIndex])) - abs(pinewGUTs_minus[SpecificIndex]));
-    }    
-    current_derivatives = single_var_deriv_approxes(pinewGUTs_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-
-    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                        + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
-    }
-    tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-    }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //pi_GUT_minus = pinewGUTs_minus[6] - pistep;
-    } 
-
-    while ((!too_sensitive_flag) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (5.0)))) {
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        
-        // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewGUTs_minus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewGUTs_minus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
-        vector<double> checkweaksols = solveODEs(pinewGUTs_minus, picurrentlogQGUT, picurrentlogQSUSY, copysign(1.0e-6, (picurrentlogQSUSY - picurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
-        piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (piminusEWSB == true) {
-            piminusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
-        }
-        // if (piminusEWSB == true) {
-        //     piminusEWSB = BFB_check(checkweaksols);
-        // }
-        piminusNoCCB = CCB_Check(checkweaksols);
-        if (!(piminusEWSB) || !(piminusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piminusNoCCB = false;
-            }
-        }
-        if (!(piminusNoCCB)) {
-            break;
-        } 
-        vector<double> pioldGUTs_minus = pinewGUTs_minus;
-        pinewGUTs_minus[SpecificIndex] = ((pinewGUTs_minus[SpecificIndex]) - bigpistep);
-        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewGUTs_minus[SpecificIndex] = pinewGUTs_minus[SpecificIndex] - (2.0 * bigpistep * sqrt(abs(pinewGUTs_minus[SpecificIndex]))) + (bigpistep * bigpistep);
-        } else {
-            pinewGUTs_minus[SpecificIndex] = ((pinewGUTs_minus[SpecificIndex]) - bigpistep);
-        }
-        pinewGUTs_minus[43] += (tanbshift_minus * ((2.0 * sqrt(pinew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
-        // Now adjust Yukawas for next iteration.
-        if ((pinewGUTs_minus[43] < 3.0) || (pinewGUTs_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            piminusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(pioldGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(pinewGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                pinewGUTs_minus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!piminusEWSB) {
-            // std::cout << "EWSpi issue in convergence loop" << endl;
-            pinewGUTs_minus[SpecificIndex] = pioldGUTs_minus[SpecificIndex];
-            break;
-        }
-        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_minus[SpecificIndex]))) - sqrt(abs(pinewGUTs_minus[SpecificIndex])));
-        } else {
-            pistep = (boost::math::float_next(abs(pinewGUTs_minus[SpecificIndex])) - abs(pinewGUTs_minus[SpecificIndex]));
-        }    
-        current_derivatives = single_var_deriv_approxes(pinewGUTs_minus, pinew_mZ2minus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-    
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * pistep));
-        }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * pistep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(pinew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //pi_GUT_minus = pinewGUTs_minus[6] - pistep;
-        } 
-    }
-    std::cout << paramName << "(total, minus) = " << pinewGUTs_minus[SpecificIndex] << endl; 
-    pi_TOTAL_GUT_minus = pinewGUTs_minus[SpecificIndex];
-
-    if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-        pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_plus[SpecificIndex]))) - sqrt(abs(pinewGUTs_plus[SpecificIndex])));
-    } else {
-        pistep = (boost::math::float_next(abs(pinewGUTs_plus[SpecificIndex])) - abs(pinewGUTs_plus[SpecificIndex]));
-    }    
-    current_derivatives = single_var_deriv_approxes(pinewGUTs_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-
-    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                        + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
-    }
-    tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * pistep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-    } 
-
-    while ((!too_sensitive_flag) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (5.0)))) {
-        bigpistep = pistep * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        
-        // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
-        //std::cout << "New " << paramName << "(GUT) = " << pinewGUTs_plus[SpecificIndex] << endl;
-        //std::cout << "New tanb = " << pinewGUTs_plus[43] << endl;
-        // std::cout << "---------------------------------------" << endl;
-        vector<double> checkweaksols = solveODEs(pinewGUTs_plus, picurrentlogQGUT, picurrentlogQSUSY, copysign(1.0e-6, (picurrentlogQSUSY - picurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
-        piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (piplusEWSB == true) {
-            piplusEWSB = Hessian_check(checkweaksols, exp(pinewlogQSUSY));
-        }
-        // if (piplusEWSB == true) {
-        //     piplusEWSB = BFB_check(checkweaksols);
-        // }
-        piplusNoCCB = CCB_Check(checkweaksols);
-        if (!(piplusEWSB) || !(piplusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(picurrentlogQSUSY), pinew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                piplusNoCCB = false;
-            }
-        }
-        if (!(piplusNoCCB)) {
-            break;
-        } 
-        vector<double> pioldGUTs_plus = pinewGUTs_plus;
-        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pinewGUTs_plus[SpecificIndex] = pinewGUTs_plus[SpecificIndex] + (2.0 * bigpistep * sqrt(abs(pinewGUTs_plus[SpecificIndex]))) + (bigpistep * bigpistep);
-        } else {
-            pinewGUTs_plus[SpecificIndex] = ((pinewGUTs_plus[SpecificIndex]) - bigpistep);
-        }
-        pinew_mZ2plus += copysign((2.0 * sqrt(pinew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        pinewGUTs_plus[43] += (tanbshift_plus * ((2.0 * sqrt(pinew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
-        // Now adjust Yukawas for next iteration.
-        if ((pinewGUTs_plus[43] < 3.0) || (pinewGUTs_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            piplusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(pioldGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(pinewGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                pinewGUTs_plus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!piplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            pinewGUTs_plus[SpecificIndex] = pioldGUTs_plus[SpecificIndex];
-            break;
-        }
-        if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
-            pistep = (boost::math::float_next(sqrt(abs(pinewGUTs_plus[SpecificIndex]))) - sqrt(abs(pinewGUTs_plus[SpecificIndex])));
-        } else {
-            pistep = (boost::math::float_next(abs(pinewGUTs_plus[SpecificIndex])) - abs(pinewGUTs_plus[SpecificIndex]));
-        }    
-        current_derivatives = single_var_deriv_approxes(pinewGUTs_plus, pinew_mZ2plus, SpecificIndex, pinewlogQSUSY, pinewlogQGUT);
-    
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep))
-                           + (0.5 * pistep * pistep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (pistep));
-        }
-        tanbshift_plus = (current_derivatives[0] * pistep) + (0.5 * current_derivatives[1] * pistep * pistep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * pistep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(pinew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-        } 
-    }
-    std::cout << paramName << "(total, plus) = " << pinewGUTs_plus[SpecificIndex] << endl; 
-    pi_TOTAL_GUT_plus = pinewGUTs_plus[SpecificIndex];
-
-    if ((abs(pi_TOTAL_GUT_minus - pi_GUT_minus) < 1.0e-12) && (abs(pi_TOTAL_GUT_plus - pi_GUT_plus) < 1.0e-12)) {
-        if (abs(pi_GUT_minus) <= abs(pi_GUT_plus)) {
-            pi_TOTAL_GUT_minus = 0.1 * pi_GUT_minus;
-            pi_TOTAL_GUT_plus = 10.0 * pi_GUT_plus;
-        } else {
-            pi_TOTAL_GUT_minus = 10.0 * pi_GUT_minus;
-            pi_TOTAL_GUT_plus = 0.1 * pi_GUT_plus;
-        }
-
-        std::cout << "General window established for " << paramName << " variation." << endl;
-
-        return {pi_GUT_minus, pi_GUT_plus, pi_TOTAL_GUT_minus, pi_TOTAL_GUT_plus};
-    }
-
-    std::cout << "General window established for " << paramName << " variation." << endl;
-
-    return {pi_GUT_minus, pi_GUT_plus, pi_TOTAL_GUT_minus, pi_TOTAL_GUT_plus};
 }
 
-vector<double> DSN_mu_windows(vector<double>& GUT_boundary_conditions, double& current_mZ2, double& current_logQSUSY, double& current_logQGUT) {
+
+vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& current_mZ2, double& current_logQSUSY) {
     double t_target = log(500.0);
-    vector<double> munewGUTs_plus = GUT_boundary_conditions;
-    vector<double> munewGUTs_minus = GUT_boundary_conditions;
-    double mucurrentlogQGUT = current_logQGUT;
+    vector<double> munewweaks_plus = Wk_boundary_conditions;
+    vector<double> munewweaks_minus = Wk_boundary_conditions;
     double mucurrentlogQSUSY = current_logQSUSY;
-    double munewlogQGUT = current_logQGUT;
     double munewlogQSUSY = current_logQSUSY;
     double munew_mZ2plus = current_mZ2;
     double munew_mZ2minus = current_mZ2;
@@ -1470,520 +1254,489 @@ vector<double> DSN_mu_windows(vector<double>& GUT_boundary_conditions, double& c
     bool muplusNoCCB = true;
     bool muplusEWSB = true;
 
-    double muplus = munewGUTs_plus[6];
+    double muplus = munewweaks_plus[6];
     double newmuplus = muplus;
-    double tanbplus = munewGUTs_plus[43];
+    double tanbplus = munewweaks_plus[43];
     double newtanbplus = tanbplus;
 
-    double muminus = munewGUTs_minus[6];
+    double muminus = munewweaks_minus[6];
     double newmuminus = muminus;
-    double tanbminus = munewGUTs_minus[43];
+    double tanbminus = munewweaks_minus[43];
     double newtanbminus = tanbminus;
-    double BGUT_original = GUT_boundary_conditions[42] / GUT_boundary_conditions[6];
 
     // First compute width of ABDS window
     double lambdaMu = 0.5;
     double Mu_least_Sq_Tol = 1.0e-2;
     double prev_fmu = std::numeric_limits<double>::max();
     double curr_lsq_eval = std::numeric_limits<double>::max();
-    vector<double> current_derivatives = single_var_deriv_approxes(munewGUTs_minus, munew_mZ2minus, 6, munewlogQSUSY, munewlogQGUT);
-    for (double deriv_value : current_derivatives) {
-        //std::cout << "Derivative: " << deriv_value << endl;
-        if (isnan(deriv_value) || isinf(deriv_value)) {
-            muminusEWSB = false;
-        }
-    }
-    double mustep, bigmustep;
-    mustep = (boost::math::float_next(abs(munewGUTs_minus[6])) - abs(munewGUTs_minus[6]));// * abs(munewGUTs_minus[6]);
-        
-    double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    
-    std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
-    }
-    double tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-    std::cout << "tanb minus shift: " << tanbshift_minus << endl;
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-    }
-    bool too_sensitive_flag = false;
-    double mu_GUT_minus, mu_GUT_plus;
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        mu_GUT_minus = munewGUTs_minus[6] - mustep;
-    } 
-    // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
-    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewGUTs_minus[6]) > 10.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigmustep = mustep * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
-        // std::cout << "New mu = " << munewGUTs_minus[6] << endl;
-        // std::cout << "New tanb = " << munewGUTs_minus[43] << endl;
-        vector<double> checkweaksols = solveODEs(munewGUTs_minus, mucurrentlogQGUT, mucurrentlogQSUSY, copysign(1.0e-6, (mucurrentlogQSUSY - mucurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
-        muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (muminusEWSB == true) {
-            muminusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
-        }
-        muminusNoCCB = CCB_Check(checkweaksols);
-        if (!(muminusEWSB) || !(muminusNoCCB)) {
-            break;
-        } 
-        if (!(muminusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muminusNoCCB = false;
+    try {
+        vector<double> current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
+        for (double deriv_value : current_derivatives) {
+            //std::cout << "Derivative: " << deriv_value << endl;
+            if (isnan(deriv_value) || isinf(deriv_value)) {
+                muminusEWSB = false;
             }
         }
-        if (!(muminusNoCCB)) {
-            break;
-        } 
-        // std::cout << "Mu step size = " << mustep << endl;
-        vector<double> muoldGUTs_minus = munewGUTs_minus;
-        munewGUTs_minus[6] -= bigmustep;
-        munewGUTs_minus[42] = (munewGUTs_minus[42] / muoldGUTs_minus[6]) * munewGUTs_minus[6];
-        
-        
-        if (!(muminusEWSB)) {
-            munewGUTs_minus[6] = muoldGUTs_minus[6];
-            break;
+        double mustepplus, mustepminus, bigmustep;
+        mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]);    
+        double mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                            + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        double original_mZ2shift_minus = mZ2shift_minus;
+        // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
         }
-        munew_mZ2minus += copysign((2.0 * sqrt(munew_mZ2minus)) + 1.0, mZ2shift_minus);
-        munewGUTs_minus[43] += (tanbshift_minus * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
-        // Now adjust Yukawas for next iteration.
-        if ((munewGUTs_minus[43] < 3.0) || (munewGUTs_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            muminusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(muoldGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(munewGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                munewGUTs_minus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!muminusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            munewGUTs_minus[6] = muoldGUTs_minus[6];
-            munewGUTs_minus[42] = muoldGUTs_minus[42];
-            munewGUTs_minus[43] = muoldGUTs_minus[43];
-            break;
-        }
-        mustep = (boost::math::float_next(abs(munewGUTs_minus[6])) - abs(munewGUTs_minus[6]));// * abs(munewGUTs_minus[6]);
-        current_derivatives = single_var_deriv_approxes(munewGUTs_minus, munew_mZ2minus, 6, munewlogQSUSY, munewlogQGUT);
-    
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
-        }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
+        double tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+        // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
+        bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
+        double mu_weak_minus, mu_weak_plus;
+        if ((abs(mZ2shift_minus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //mu_GUT_minus = munewGUTs_minus[6] - mustep;
+            too_sensitive_flag_minus = true;
+            mu_weak_minus = munewweaks_minus[6] + mustepminus;
         } 
-    }
-    std::cout << "mu(ABDS, minus) = " << munewGUTs_minus[6] << endl; 
-    
-    mu_GUT_minus = munewGUTs_minus[6];
-    
-    mustep = (boost::math::float_next(abs(munewGUTs_plus[6])) - abs(munewGUTs_plus[6]));// * abs(munewGUTs_plus[6]);
-    current_derivatives = single_var_deriv_approxes(munewGUTs_plus, munew_mZ2plus, 6, munewlogQSUSY, munewlogQGUT);
-    
-    double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    double tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-
-    std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
-    }
-    std::cout << "tanb plus shift: " << tanbshift_plus << endl;
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * mustep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        mu_GUT_plus = munewGUTs_plus[6] + mustep;
-    }
-    // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
-    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewGUTs_plus[6]) > 10.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
-        int numStepsDone = 0;
-        bigmustep = mustep * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
-        // std::cout << "New mu = " << munewGUTs_plus[6] << endl;
-        // std::cout << "New tanb = " << munewGUTs_plus[43] << endl;
-        vector<double> checkweaksols = solveODEs(munewGUTs_plus, mucurrentlogQGUT, mucurrentlogQSUSY, copysign(1.0e-6, (mucurrentlogQSUSY - mucurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
-        muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (muplusEWSB == true) {
-            muplusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
-        }
-        muplusNoCCB = CCB_Check(checkweaksols);
-        if (!(muplusEWSB) || !(muplusNoCCB)) {
-            break;
-        } 
-        if (!(muplusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muplusNoCCB = false;
+        // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
+        while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
+            bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+            // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
+            // std::cout << "New mu = " << munewweaks_minus[6] << endl;
+            // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
+            vector<double> checkweaksols = munewweaks_minus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
+            muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (muminusEWSB == true) {
+                muminusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
             }
-        }
-        if (!(muplusNoCCB)) {
-            break;
-        } 
-        // std::cout << "Mu step size = " << mustep << endl;
-        vector<double> muoldGUTs_plus = munewGUTs_plus;
-        munewGUTs_plus[6] += bigmustep;
-        munewGUTs_plus[42] = (munewGUTs_plus[42] / muoldGUTs_plus[6]) * munewGUTs_plus[6];
-        
-        
-        if (!(muplusEWSB)) {
-            munewGUTs_plus[6] = muoldGUTs_plus[6];
-            break;
-        }
-        munew_mZ2plus += copysign((2.0 * sqrt(munew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        munewGUTs_plus[43] += (tanbshift_plus * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
-        // Now adjust Yukawas for next iteration.
-        if ((munewGUTs_plus[43] < 3.0) || (munewGUTs_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            muplusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(muoldGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(munewGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
+            muminusNoCCB = CCB_Check(checkweaksols);
+            if (!(muminusEWSB) || !(muminusNoCCB)) {
+                break;
+            } 
+            if (!(muminusNoCCB)) {
+                break;
+            } 
+            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
+            // for (double value : tree_level_masses) {
+            //     if (value < 0) {
+            //         muminusNoCCB = false;
+            //     }
+            // }
+            if (!(muminusNoCCB)) {
+                break;
+            } 
+            // std::cout << "Mu step size = " << mustep << endl;
+            vector<double> muoldweaks_minus = munewweaks_minus;
+            munewweaks_minus[6] += bigmustep;
+            munewweaks_minus[42] = (munewweaks_minus[42] / muoldweaks_minus[6]) * munewweaks_minus[6];
+            
+            if (!(muminusEWSB)) {
+                munewweaks_minus[6] = muoldweaks_minus[6];
+                break;
+            }
+            munew_mZ2minus += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * copysign(1.0, mZ2shift_minus);
+            munewweaks_minus[43] += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * tanbshift_minus / abs(mZ2shift_minus);
+            // Now adjust Yukawas for next iteration.
+            if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
+                // std::cout << "Yukawas non-perturbative" << endl;
+                muminusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        munewweaks_minus[YukIndx] *= sin(atan(muoldweaks_minus[43])) / sin(atan(munewweaks_minus[43]));
+                    } else {
+                        munewweaks_minus[YukIndx] *= cos(atan(muoldweaks_minus[43])) / cos(atan(munewweaks_minus[43]));
+                    }
                 }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                munewGUTs_plus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
+            }        
 
-        if (!muplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            munewGUTs_plus[6] = muoldGUTs_plus[6];
-            munewGUTs_plus[42] = muoldGUTs_plus[42];
-            munewGUTs_plus[43] = muoldGUTs_plus[43];
-            break;
+            if (!muminusEWSB) {
+                // std::cout << "EWSB issue in convergence loop" << endl;
+                munewweaks_minus[6] = muoldweaks_minus[6];
+                munewweaks_minus[42] = muoldweaks_minus[42];
+                munewweaks_minus[43] = muoldweaks_minus[43];
+                break;
+            }
+            mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
+            current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
+        
+            mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                            + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_minus) > 1.0) {
+                mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
+            }
+            tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+            if ((abs(mZ2shift_minus) > 1.0)) {
+                // std::cout << "Sensitivity too high in ABDS minus shift routine" << endl;
+                too_sensitive_flag_minus = true;
+                //mu_weak_minus = munewweaks_minus[6] - mustep;
+            } 
         }
-        mustep = (boost::math::float_next(abs(munewGUTs_plus[6])) - abs(munewGUTs_plus[6]));// * abs(munewGUTs_plus[6]);
-        current_derivatives = single_var_deriv_approxes(munewGUTs_plus, munew_mZ2plus, 6, munewlogQSUSY, munewlogQGUT);
-    
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
+        std::cout << "mu(ABDS, minus) = " << munewweaks_minus[6] << endl; 
+        
+        mu_weak_minus = munewweaks_minus[6];
+        
+        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);// * abs(munewweaks_minus[6]);
+        current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
+        
+        double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                            + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        double tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+
+        // std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
         }
-        tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * mustep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
+        // std::cout << "tanb plus shift: " << tanbshift_plus << endl;
+        if ((abs(mZ2shift_plus) > 1.0)) {
             // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //mu_GUT_plus = munewGUTs_plus[6] + mustep;
+            too_sensitive_flag_plus = true;
+            mu_weak_plus = munewweaks_plus[6] + (mustepplus / mZ2shift_plus);
         } 
-    }
-    std::cout << "mu(ABDS, plus) = " << munewGUTs_plus[6] << endl; 
-    
-    mu_GUT_plus = munewGUTs_plus[6];
-    
+        // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
+        while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
+            bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+            // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
+            // std::cout << "New mu = " << munewweaks_plus[6] << endl;
+            // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
+            // std::cout << "EWSB: " << muplusEWSB << endl;
+            // std::cout << "CCB: " << muplusNoCCB << endl;
+            vector<double> checkweaksols = munewweaks_plus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
+            muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (muplusEWSB == true) {
+                muplusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
+            }
+            muplusNoCCB = CCB_Check(checkweaksols);
+            if (!(muplusEWSB) || !(muplusNoCCB)) {
+                break;
+            } 
+            if (!(muplusNoCCB)) {
+                break;
+            } 
+            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
+            // for (double value : tree_level_masses) {
+            //     if (value < 0) {
+            //         muplusNoCCB = false;
+            //     }
+            // }
+            if (!(muplusNoCCB)) {
+                break;
+            } 
+            // std::cout << "Mu step size = " << mustep << endl;
+            vector<double> muoldweaks_plus = munewweaks_plus;
+            munewweaks_plus[6] += bigmustep;
+            munewweaks_plus[42] = (munewweaks_plus[42] / muoldweaks_plus[6]) * munewweaks_plus[6];
+            
+            
+            if (!(muplusEWSB)) {
+                munewweaks_plus[6] = muoldweaks_plus[6];
+                break;
+            }
+            munew_mZ2plus += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * copysign(1.0, (-1.0) * (munew_mZ2minus - (91.1876 * 91.1876)));
+            munewweaks_plus[43] += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * tanbshift_plus / abs(mZ2shift_plus);
+            // Now adjust Yukawas for next iteration.
+            if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
+                // std::cout << "Yukawas non-perturbative" << endl;
+                muplusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        munewweaks_plus[YukIndx] *= sin(atan(muoldweaks_plus[43])) / sin(atan(munewweaks_plus[43]));
+                    } else {
+                        munewweaks_plus[YukIndx] *= cos(atan(muoldweaks_plus[43])) / cos(atan(munewweaks_plus[43]));
+                    }
+                }
+            }        
 
-    std::cout << "ABDS window established for mu variation." << endl;
-
-    bool ABDSminuscheck = (muminusEWSB && muminusNoCCB); 
-    bool ABDSpluscheck = (muplusEWSB && muplusNoCCB);
-    bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
-    double mu_TOTAL_GUT_minus, mu_TOTAL_GUT_plus;
-    if ((!(total_ABDScheck)) || too_sensitive_flag) {
-        if (abs(mu_GUT_minus) <= abs(mu_GUT_plus)) {
-            mu_TOTAL_GUT_minus = 10.0;//0.000001 * mu_GUT_minus;//pow(10.0, -0.5) * mu_GUT_minus;
-            mu_TOTAL_GUT_plus = 1.0e16;//1000000.0 * mu_GUT_plus;//pow(10.0, 0.5) * mu_GUT_plus;
-        } else {
-            mu_TOTAL_GUT_minus = 1.0e16;//1000000.0 * mu_GUT_minus;//pow(10.0, 0.5) * mu_GUT_minus;
-            mu_TOTAL_GUT_plus = 10.0;//0.000001 * mu_GUT_plus;//pow(10.0, -0.5) * mu_GUT_plus;
+            if (!muplusEWSB) {
+                // std::cout << "EWSB issue in convergence loop" << endl;
+                munewweaks_plus[6] = muoldweaks_plus[6];
+                munewweaks_plus[42] = muoldweaks_plus[42];
+                munewweaks_plus[43] = muoldweaks_plus[43];
+                break;
+            }
+            mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);    
+            current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
+        
+            mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                            + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_plus) > 1.0) {
+                mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
+            }
+            tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+            if ((abs(mZ2shift_plus) > 1.0)) {
+                // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
+                too_sensitive_flag_plus = true;
+                //mu_weak_plus = munewweaks_plus[6] - mustep;
+            } 
         }
+        std::cout << "mu(ABDS, plus) = " << munewweaks_plus[6] << endl; 
+        
+        mu_weak_plus = munewweaks_plus[6];
+        
+
+        std::cout << "ABDS window established for mu variation." << endl;
+
+        bool ABDSminuscheck = (muminusEWSB && muminusNoCCB); 
+        bool ABDSpluscheck = (muplusEWSB && muplusNoCCB);
+        bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
+        double mu_TOTAL_weak_minus, mu_TOTAL_weak_plus;
+        // if ((!(total_ABDScheck)) || too_sensitive_flag) {
+        //     mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+        //     mu_TOTAL_weak_plus = mu_weak_plus + (mustepplus / abs(mZ2shift_plus));
+
+        //     std::cout << "Had to stop early. General window established for mu variation." << endl;
+
+        //     return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
+        // }
+
+        mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
+        current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
+
+        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                            + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        
+        // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
+        if (abs(mZ2shift_minus) > 1.0) {
+            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
+        }
+        tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+        // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
+        if ((abs(mZ2shift_minus) > 1.0)) {
+            // std::cout << "Sensitivity too high, approximating solution" << endl;
+            too_sensitive_flag_minus = true;
+            //mu_weak_minus = munewweaks_minus[6] - mustep;
+        } 
+
+        while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0))) {
+            bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
+            // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
+            // std::cout << "New mu = " << munewweaks_minus[6] << endl;
+            // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
+            vector<double> checkweaksols = munewweaks_minus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
+            muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (muminusEWSB == true) {
+                muminusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
+            }
+            muminusNoCCB = CCB_Check(checkweaksols);
+            if (!(muminusEWSB) || !(muminusNoCCB)) {
+                // std::cout << "Stopped due to EWSB issues" << endl;
+                break;
+            } 
+            if (!(muminusNoCCB)) {
+                // std::cout << "Stopped due to CCB issues" << endl;
+                break;
+            } 
+            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
+            // for (double value : tree_level_masses) {
+            //     if (value < 0) {
+            //         muminusNoCCB = false;
+            //     }
+            // }
+            if (!(muminusNoCCB)) {
+                break;
+            } 
+            // std::cout << "Mu step size = " << mustep << endl;
+            vector<double> muoldweaks_minus = munewweaks_minus;
+            munewweaks_minus[6] += bigmustep;
+            munewweaks_minus[42] = (munewweaks_minus[42] / muoldweaks_minus[6]) * munewweaks_minus[6];
+            
+            
+            if (!(muminusEWSB)) {
+                munewweaks_minus[6] = muoldweaks_minus[6];
+                break;
+            }
+            munew_mZ2minus += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * copysign(1.0, mZ2shift_minus);
+            munewweaks_minus[43] += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * tanbshift_minus / abs(mZ2shift_minus);
+            // Now adjust Yukawas for next iteration.
+            if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
+                // std::cout << "Yukawas non-perturbative" << endl;
+                muminusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        munewweaks_minus[YukIndx] *= sin(atan(muoldweaks_minus[43])) / sin(atan(munewweaks_minus[43]));
+                    } else {
+                        munewweaks_minus[YukIndx] *= cos(atan(muoldweaks_minus[43])) / cos(atan(munewweaks_minus[43]));
+                    }
+                }
+            }        
+
+            if (!muminusEWSB) {
+                // std::cout << "EWSB issue in convergence loop" << endl;
+                munewweaks_minus[6] = muoldweaks_minus[6];
+                munewweaks_minus[42] = muoldweaks_minus[42];
+                munewweaks_minus[43] = muoldweaks_minus[43];
+                break;
+            }
+            mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
+            current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
+        
+            mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus))
+                            + (0.5 * mustepminus * mustepminus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_minus) > 1.0) {
+                mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
+            }
+            tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
+            if ((abs(mZ2shift_minus) > 1.0)) {
+                // std::cout << "Sensitivity too high in total minus" << endl;
+                too_sensitive_flag_minus = true;
+                //mu_weak_minus = munewweaks_minus[6] - mustep;
+            } 
+        }
+        std::cout << "mu(total, minus) = " << munewweaks_minus[6] << endl; 
+        mu_TOTAL_weak_minus = munewweaks_minus[6];
+        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);// * abs(munewweaks_minus[6]);
+        current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
+
+        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                            + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+        if (abs(mZ2shift_plus) > 1.0) {
+            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
+        }
+        tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+        if ((abs(mZ2shift_plus) > 1.0)) {
+            // std::cout << "Sensitivity too high, approximating solution" << endl;
+            too_sensitive_flag_plus = true;
+            mu_TOTAL_weak_plus = munewweaks_plus[6] + (mustepplus / abs(mZ2shift_plus));
+        } 
+
+        while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0))) {
+            bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
+            // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
+            // std::cout << "New mu = " << munewweaks_plus[6] << endl;
+            // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
+            vector<double> checkweaksols = munewweaks_plus;
+            vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
+            muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
+            // Checking loop-level EWSB
+            if (muplusEWSB == true) {
+                muplusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
+            }
+            muplusNoCCB = CCB_Check(checkweaksols);
+            if (!(muplusEWSB) || !(muplusNoCCB)) {
+                break;
+            } 
+            if (!(muplusNoCCB)) {
+                break;
+            } 
+            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
+            // for (double value : tree_level_masses) {
+            //     if (value < 0) {
+            //         muplusNoCCB = false;
+            //     }
+            // }
+            if (!(muplusNoCCB)) {
+                break;
+            } 
+            // std::cout << "Mu step size = " << mustep << endl;
+            vector<double> muoldweaks_plus = munewweaks_plus;
+            munewweaks_plus[6] += bigmustep;
+            munewweaks_plus[42] = (munewweaks_plus[42] / muoldweaks_plus[6]) * munewweaks_plus[6];
+            
+            
+            if (!(muplusEWSB)) {
+                munewweaks_plus[6] = muoldweaks_plus[6];
+                break;
+            }
+            munew_mZ2plus += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * copysign(1.0, (-1.0) * (munew_mZ2minus - (91.1876 * 91.1876)));
+            munewweaks_plus[43] += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * tanbshift_plus / abs(mZ2shift_plus);
+            // Now adjust Yukawas for next iteration.
+            if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
+                // std::cout << "Yukawas non-perturbative" << endl;
+                muplusEWSB = false;
+            } else {
+                for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
+                    if ((YukIndx >=7) && (YukIndx < 10)) {
+                        munewweaks_plus[YukIndx] *= sin(atan(muoldweaks_plus[43])) / sin(atan(munewweaks_plus[43]));
+                    } else {
+                        munewweaks_plus[YukIndx] *= cos(atan(muoldweaks_plus[43])) / cos(atan(munewweaks_plus[43]));
+                    }
+                }
+            }        
+
+            if (!muplusEWSB) {
+                // std::cout << "EWSB issue in convergence loop" << endl;
+                munewweaks_plus[6] = muoldweaks_plus[6];
+                munewweaks_plus[42] = muoldweaks_plus[42];
+                munewweaks_plus[43] = muoldweaks_plus[43];
+                break;
+            }
+            mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);    
+            current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
+        
+            mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
+                            + (0.5 * mustepplus * mustepplus * ((current_derivatives[1] * current_derivatives[2])
+                                                        + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
+                                                        + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
+            if (abs(mZ2shift_plus) > 1.0) {
+                mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
+            }
+            tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
+            if ((abs(mZ2shift_plus) > 1.0)) {
+                // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
+                too_sensitive_flag_plus = true;
+                //mu_weak_plus = munewweaks_plus[6] - mustep;
+            } 
+        }
+        std::cout << "mu(total, plus) = " << munewweaks_plus[6] << endl; 
+        mu_TOTAL_weak_plus = munewweaks_plus[6];
+
+        if ((abs(mu_TOTAL_weak_minus - mu_weak_minus) < 1.0e-12)) {
+            mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+        }
+        if ((abs(mu_TOTAL_weak_plus - mu_weak_plus) < 1.0e-12)) {
+            mu_TOTAL_weak_plus = mu_weak_plus + (mustepplus / abs(mZ2shift_plus));
+        }
+        //std::cout << "General window established for mu variation." << endl;
+
+            //return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
+        
 
         std::cout << "General window established for mu variation." << endl;
 
-        return {mu_GUT_minus, mu_GUT_plus, mu_TOTAL_GUT_minus, mu_TOTAL_GUT_plus};
+        return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Runtime error in DSN mu window calculation: " << e.what() << std::endl;
+        std::cerr << "Approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[6]),
+                boost::math::float_next(Wk_boundary_conditions[6]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6]))};
+    } catch (const std::exception& e) {
+        std::cerr << "Numerical error in DSN mu window calculation: " << e.what() << std::endl;
+        std::cerr << "Approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[6]),
+                boost::math::float_next(Wk_boundary_conditions[6]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6]))};
+    } catch (...) {
+        std::cerr << "Unknown error in DSN mu window calculation, approximating solution." << std::endl;
+        return {boost::math::float_prior(Wk_boundary_conditions[6]),
+                boost::math::float_next(Wk_boundary_conditions[6]),
+                boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6])),
+                boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6]))};
     }
-
-    mustep = (boost::math::float_next(abs(munewGUTs_minus[6])) - abs(munewGUTs_minus[6]));// * abs(munewGUTs_minus[6]);
-    current_derivatives = single_var_deriv_approxes(munewGUTs_minus, munew_mZ2minus, 6, munewlogQSUSY, munewlogQGUT);
-
-    mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                        + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-        mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
-    }
-    tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-    if (abs(tanbshift_minus) > 10.0) {
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-    }
-    if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //mu_GUT_minus = munewGUTs_minus[6] - mustep;
-    } 
-
-    while ((!too_sensitive_flag) && (muminusEWSB) && (muminusNoCCB) && (abs(munewGUTs_minus[6]) > 10.0) && ((munew_mZ2minus > (5.0)))) {
-        int numStepsDone = 0;
-        bigmustep = mustep * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-        // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
-        // std::cout << "New mu = " << munewGUTs_minus[6] << endl;
-        // std::cout << "New tanb = " << munewGUTs_minus[43] << endl;
-        vector<double> checkweaksols = solveODEs(munewGUTs_minus, mucurrentlogQGUT, mucurrentlogQSUSY, copysign(1.0e-6, (mucurrentlogQSUSY - mucurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
-        muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (muminusEWSB == true) {
-            muminusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
-        }
-        muminusNoCCB = CCB_Check(checkweaksols);
-        if (!(muminusEWSB) || !(muminusNoCCB)) {
-            break;
-        } 
-        if (!(muminusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muminusNoCCB = false;
-            }
-        }
-        if (!(muminusNoCCB)) {
-            break;
-        } 
-        vector<double> muoldGUTs_minus = munewGUTs_minus;
-        munewGUTs_minus[6] -= bigmustep;
-        munewGUTs_minus[42] = (munewGUTs_minus[42] / muoldGUTs_minus[6]) * munewGUTs_minus[6];
-        
-        
-        if (!(muminusEWSB)) {
-            munewGUTs_minus[6] = muoldGUTs_minus[6];
-            break;
-        }
-        munew_mZ2minus += copysign((2.0 * sqrt(munew_mZ2minus)) + 1.0, mZ2shift_minus);
-        munewGUTs_minus[43] += (tanbshift_minus * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus));
-        // Now adjust Yukawas for next iteration.
-        if ((munewGUTs_minus[43] < 3.0) || (munewGUTs_minus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            muminusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(muoldGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(munewGUTs_minus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                munewGUTs_minus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!muminusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            munewGUTs_minus[6] = muoldGUTs_minus[6];
-            munewGUTs_minus[42] = muoldGUTs_minus[42];
-            munewGUTs_minus[43] = muoldGUTs_minus[43];
-            break;
-        }
-        mustep = (boost::math::float_next(abs(munewGUTs_minus[6])) - abs(munewGUTs_minus[6]));// * abs(munewGUTs_minus[6]);
-        current_derivatives = single_var_deriv_approxes(munewGUTs_minus, munew_mZ2minus, 6, munewlogQSUSY, munewlogQGUT);
-    
-        mZ2shift_minus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) {
-            mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (-1.0 * mustep));
-        }
-        tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_minus) > 10.0) {
-            tanbshift_minus = (current_derivatives[0] * (-1.0) * mustep);
-        }
-        if ((abs(mZ2shift_minus) > abs((2.0 * sqrt(munew_mZ2minus)) + 1.0)) || (abs(tanbshift_minus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //mu_GUT_minus = munewGUTs_minus[6] - mustep;
-        } 
-    }
-    std::cout << "mu(total, minus) = " << munewGUTs_minus[6] << endl; 
-    mu_TOTAL_GUT_minus = munewGUTs_minus[6];
-    mustep = (boost::math::float_next(abs(munewGUTs_plus[6])) - abs(munewGUTs_plus[6]));// * abs(munewGUTs_plus[6]);
-    current_derivatives = single_var_deriv_approxes(munewGUTs_plus, munew_mZ2plus, 6, munewlogQSUSY, munewlogQGUT);
-
-    mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                        + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                    + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                    + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-    if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-        mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
-    }
-    tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-    if (abs(tanbshift_plus) > 10.0) {
-        tanbshift_plus = (current_derivatives[0] * mustep);
-    }
-    if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-        // std::cout << "Sensitivity too high, approximating solution" << endl;
-        too_sensitive_flag = true;
-        //mu_GUT_plus = munewGUTs_plus[6] + mustep;
-    } 
-
-    while ((!too_sensitive_flag) && (muplusEWSB) && (muplusNoCCB) && (abs(munewGUTs_plus[6]) > 10.0) && ((munew_mZ2plus > (5.0)))) {
-        bigmustep = mustep * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-        // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
-        // std::cout << "New mu = " << munewGUTs_plus[6] << endl;
-        // std::cout << "New tanb = " << munewGUTs_plus[43] << endl;
-        vector<double> checkweaksols = solveODEs(munewGUTs_plus, mucurrentlogQGUT, mucurrentlogQSUSY, copysign(1.0e-6, (mucurrentlogQSUSY - mucurrentlogQGUT)));
-        vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
-        muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
-        // Checking loop-level EWSB
-        if (muplusEWSB == true) {
-            muplusEWSB = Hessian_check(checkweaksols, exp(munewlogQSUSY));
-        }
-        muplusNoCCB = CCB_Check(checkweaksols);
-        if (!(muplusEWSB) || !(muplusNoCCB)) {
-            break;
-        } 
-        if (!(muplusNoCCB)) {
-            break;
-        } 
-        vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
-        for (double value : tree_level_masses) {
-            if (value < 0) {
-                muplusNoCCB = false;
-            }
-        }
-        if (!(muplusNoCCB)) {
-            break;
-        } 
-        vector<double> muoldGUTs_plus = munewGUTs_plus;
-        munewGUTs_plus[6] += bigmustep;
-        munewGUTs_plus[42] = (munewGUTs_plus[42] / muoldGUTs_plus[6]) * munewGUTs_plus[6];
-        
-        
-        if (!(muplusEWSB)) {
-            munewGUTs_plus[6] = muoldGUTs_plus[6];
-            break;
-        }
-        munew_mZ2plus += copysign((2.0 * sqrt(munew_mZ2plus)) + 1.0, (-1.0) * mZ2shift_minus);
-        munewGUTs_plus[43] += (tanbshift_plus * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus));
-        // Now adjust Yukawas for next iteration.
-        if ((munewGUTs_plus[43] < 3.0) || (munewGUTs_plus[43] > 60.0)) {
-            // std::cout << "Yukawas non-perturbative" << endl;
-            muplusEWSB = false;
-        } else {
-            vector<double> oldmZsols = solveODEs(muoldGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            vector<double> newmZsols = solveODEs(munewGUTs_plus, current_logQGUT, log(173.2), -1.0e-6);
-            for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
-                if ((YukIndx >=7) && (YukIndx < 10)) {
-                    newmZsols[YukIndx] *= sin(atan(oldmZsols[43])) / sin(atan(newmZsols[43]));
-                } else {
-                    newmZsols[YukIndx] *= cos(atan(oldmZsols[43])) / cos(atan(newmZsols[43]));
-                }
-            }
-            vector<double> adjustedYukGUTs = solveODEs(newmZsols, log(173.2), current_logQGUT, 1.0e-6);
-            for (int YukIndex = 7; YukIndex < 16; ++YukIndex) {
-                munewGUTs_plus[YukIndex] = adjustedYukGUTs[YukIndex];
-            }
-        }        
-
-        if (!muplusEWSB) {
-            // std::cout << "EWSB issue in convergence loop" << endl;
-            munewGUTs_plus[6] = muoldGUTs_plus[6];
-            munewGUTs_plus[42] = muoldGUTs_plus[42];
-            munewGUTs_plus[43] = muoldGUTs_plus[43];
-            break;
-        }
-        mustep = (boost::math::float_next(abs(munewGUTs_plus[6])) - abs(munewGUTs_plus[6]));// * abs(munewGUTs_plus[6]);
-        current_derivatives = single_var_deriv_approxes(munewGUTs_plus, munew_mZ2plus, 6, munewlogQSUSY, munewlogQGUT);
-    
-        mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep))
-                           + (0.5 * mustep * mustep * ((current_derivatives[1] * current_derivatives[2])
-                                                       + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
-                                                       + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
-        if (abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) {
-            mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustep));
-        }
-        tanbshift_plus = (current_derivatives[0] * mustep) + (0.5 * current_derivatives[1] * mustep * mustep);
-        if (abs(tanbshift_plus) > 10.0) {
-            tanbshift_plus = (current_derivatives[0] * mustep);
-        }
-        if ((abs(mZ2shift_plus) > abs((2.0 * sqrt(munew_mZ2plus)) + 1.0)) || (abs(tanbshift_plus) > 10.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
-            too_sensitive_flag = true;
-            //mu_GUT_plus = munewGUTs_plus[6] + mustep;
-        } 
-    }
-    std::cout << "mu(total, plus) = " << munewGUTs_plus[6] << endl; 
-    mu_TOTAL_GUT_plus = munewGUTs_plus[6];
-
-    if ((abs(mu_TOTAL_GUT_minus - mu_GUT_minus) < 1.0e-12) && (abs(mu_TOTAL_GUT_plus - mu_GUT_plus) < 1.0e-12)) {
-        if (abs(mu_GUT_minus) <= abs(mu_GUT_plus)) {
-            mu_TOTAL_GUT_minus = 10.0;//0.000001 * mu_GUT_minus;//pow(10.0, -0.5) * mu_GUT_minus;
-            mu_TOTAL_GUT_plus = 1.0e16;//1000000.0 * mu_GUT_plus;//pow(10.0, 0.5) * mu_GUT_plus;
-        } else {
-            mu_TOTAL_GUT_minus = 1.0e16;//1000000.0 * mu_GUT_minus;//pow(10.0, 0.5) * mu_GUT_minus;
-            mu_TOTAL_GUT_plus = 10.0;//0.000001 * mu_GUT_plus;//pow(10.0, -0.5) * mu_GUT_plus;
-        }
-
-        std::cout << "General window established for mu variation." << endl;
-
-        return {mu_GUT_minus, mu_GUT_plus, mu_TOTAL_GUT_minus, mu_TOTAL_GUT_plus};
-    }
-
-    std::cout << "General window established for mu variation." << endl;
-
-    return {mu_GUT_minus, mu_GUT_plus, mu_TOTAL_GUT_minus, mu_TOTAL_GUT_plus};
 }
 
-double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
+double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
                 double& current_mZ2, double& current_logQSUSY,
                 double& current_logQGUT, int& nF, int& nD) {
     double DSN, DSN_soft_num, DSN_soft_denom, DSN_higgsino, newterm;
@@ -1992,25 +1745,24 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
     std::cout << "This may take a while...\n\nProgress:\n-----------------------------------------------\n" << endl;
     if ((precselno == 1) || (precselno == 2)) {
         // Compute mu windows around original point
-        vector<double> muinitGUTBCs = GUT_boundary_conditions;
-        vector<double> muwindows = DSN_mu_windows(muinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT);
+        vector<double> muinitwkBCs = Wk_boundary_conditions;
+        vector<double> muwindows = DSN_mu_windows(muinitwkBCs, current_mZ2, current_logQSUSY);
         DSN_higgsino = abs(log10(abs(muwindows[1] / muwindows[0])));
         DSN_higgsino /= abs(muwindows[1] - muwindows[0]);
         newterm = DSN_higgsino;
         // Total normalization
         DSN_higgsino = abs(log10(abs(muwindows[3] / muwindows[2])));
         DSN_higgsino /= abs(muwindows[3] - muwindows[2]);
-        if ((abs(DSN_higgsino - newterm) < numeric_limits<double>::epsilon()) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan(DSN_higgsino)) || (DSN_higgsino == 0.0) || isinf(DSN_higgsino)) {
-            newterm = abs(log10(1.0 + (numeric_limits<double>::epsilon() * abs(GUT_boundary_conditions[6]))))\
-                / abs(numeric_limits<double>::epsilon() * abs(GUT_boundary_conditions[6]));
-            DSN_higgsino = 1.0 / abs(((pow(10.0, 0.5) - pow(10.0, -0.5))) * abs(GUT_boundary_conditions[6]));
+        if ((abs(DSN_higgsino - newterm) < numeric_limits<double>::epsilon()) || (isnan(DSN_higgsino - newterm)) || (DSN_higgsino - newterm == 0.0) || isinf(DSN_higgsino - newterm)) {
+            newterm = abs(log10(abs(boost::math::float_next(Wk_boundary_conditions[6]) / boost::math::float_prior(Wk_boundary_conditions[6]))) / abs(boost::math::float_next(Wk_boundary_conditions[6]) - boost::math::float_prior(Wk_boundary_conditions[6])));
+            DSN_higgsino = abs(log10(abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6])) / boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6])))) / abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6]))));
         }
         DSN += abs(log10(abs(DSN_higgsino)) - log10(abs(newterm)));
         std::cout << "DSN after higgsino = " << DSN << endl;
         
         // Now do same thing with mHu^2(GUT)
-        vector<double> mHu2initGUTBCs = GUT_boundary_conditions;
-        vector<double> mHu2windows = DSN_specific_windows(mHu2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 25);
+        vector<double> mHu2initwkBCs = Wk_boundary_conditions;
+        vector<double> mHu2windows = DSN_specific_windows(mHu2initwkBCs, current_mZ2, current_logQSUSY, 25);
         DSN_soft_denom = abs(copysign(sqrt(abs(mHu2windows[1])), mHu2windows[1]) - copysign(sqrt(abs(mHu2windows[0])), mHu2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mHu2windows[1])), mHu2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mHu2windows[0])), mHu2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2019,19 +1771,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mHu2windows[3])), mHu2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mHu2windows[2])), mHu2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mHu2windows[3])), mHu2windows[3]) - copysign(sqrt(abs(mHu2windows[2])), mHu2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[25]))), boost::math::float_next(GUT_boundary_conditions[25])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[25]))), boost::math::float_prior(GUT_boundary_conditions[25])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[25])), GUT_boundary_conditions[25])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[25])), GUT_boundary_conditions[25]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[25])), GUT_boundary_conditions[25]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[25])), GUT_boundary_conditions[25]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mHd^2(GUT)
-        vector<double> mHd2initGUTBCs = GUT_boundary_conditions;
-        vector<double> mHd2windows = DSN_specific_windows(mHd2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 26);
+        vector<double> mHd2initwkBCs = Wk_boundary_conditions;
+        vector<double> mHd2windows = DSN_specific_windows(mHd2initwkBCs, current_mZ2, current_logQSUSY, 26);
         DSN_soft_denom = abs(copysign(sqrt(abs(mHd2windows[1])), mHd2windows[1]) - copysign(sqrt(abs(mHd2windows[0])), mHd2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mHd2windows[1])), mHd2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mHd2windows[0])), mHd2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2040,19 +1794,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mHd2windows[3])), mHd2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mHd2windows[2])), mHd2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mHd2windows[3])), mHd2windows[3]) - copysign(sqrt(abs(mHd2windows[2])), mHd2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[26]))), boost::math::float_next(GUT_boundary_conditions[26])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[26]))), boost::math::float_prior(GUT_boundary_conditions[26])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[26])), GUT_boundary_conditions[26])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[26])), GUT_boundary_conditions[26]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[26])), GUT_boundary_conditions[26]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[26])), GUT_boundary_conditions[26]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with M1
-        vector<double> M1initGUTBCs = GUT_boundary_conditions;
-        vector<double> M1windows = DSN_specific_windows(M1initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 3);
+        vector<double> M1initwkBCs = Wk_boundary_conditions;
+        vector<double> M1windows = DSN_specific_windows(M1initwkBCs, current_mZ2, current_logQSUSY, 3);
         DSN_soft_denom = abs(M1windows[1] - M1windows[0]);
         DSN_soft_num = soft_prob_calc(M1windows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(M1windows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2061,19 +1817,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(M1windows[3] - M1windows[2]);
         DSN_soft_num = soft_prob_calc(M1windows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(M1windows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[3]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[3]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[3]) - boost::math::float_prior(GUT_boundary_conditions[3])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[3], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[3]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[3]) - boost::math::float_prior(Wk_boundary_conditions[3]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[3]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[3])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[3])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with M2
-        vector<double> M2initGUTBCs = GUT_boundary_conditions;
-        vector<double> M2windows = DSN_specific_windows(M2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 4);
+        vector<double> M2initwkBCs = Wk_boundary_conditions;
+        vector<double> M2windows = DSN_specific_windows(M2initwkBCs, current_mZ2, current_logQSUSY, 4);
         DSN_soft_denom = abs(M2windows[1] - M2windows[0]);
         DSN_soft_num = soft_prob_calc(M2windows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(M2windows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2082,19 +1840,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(M2windows[3] - M2windows[2]);
         DSN_soft_num = soft_prob_calc(M2windows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(M2windows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[4]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[4]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[4]) - boost::math::float_prior(GUT_boundary_conditions[4])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[4], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[4], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[4]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[4]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[4]) - boost::math::float_prior(Wk_boundary_conditions[4]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[4]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[4]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[4])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[4])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with M3
-        vector<double> M3initGUTBCs = GUT_boundary_conditions;
-        vector<double> M3windows = DSN_specific_windows(M3initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 5);
+        vector<double> M3initwkBCs = Wk_boundary_conditions;
+        vector<double> M3windows = DSN_specific_windows(M3initwkBCs, current_mZ2, current_logQSUSY, 5);
         DSN_soft_denom = abs(M3windows[1] - M3windows[0]);
         DSN_soft_num = soft_prob_calc(M3windows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(M3windows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2103,19 +1863,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(M3windows[3] - M3windows[2]);
         DSN_soft_num = soft_prob_calc(M3windows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(M3windows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[5]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[5]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[5]) - boost::math::float_prior(GUT_boundary_conditions[5])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[5], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[5], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[5]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[5]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[5]) - boost::math::float_prior(Wk_boundary_conditions[5]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[5]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[5]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[5])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[5])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mQ3
-        vector<double> MQ3initGUTBCs = GUT_boundary_conditions;
-        vector<double> MQ3windows = DSN_specific_windows(MQ3initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 29);
+        vector<double> MQ3initwkBCs = Wk_boundary_conditions;
+        vector<double> MQ3windows = DSN_specific_windows(MQ3initwkBCs, current_mZ2, current_logQSUSY, 29);
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ3windows[1])), MQ3windows[1])  - copysign(sqrt(abs(MQ3windows[0])), MQ3windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ3windows[1])), MQ3windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ3windows[0])), MQ3windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2124,19 +1886,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ3windows[3])), MQ3windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ3windows[2])), MQ3windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ3windows[3])), MQ3windows[3]) - copysign(sqrt(abs(MQ3windows[2])), MQ3windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[29]))), boost::math::float_next(GUT_boundary_conditions[29])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[29]))), boost::math::float_prior(GUT_boundary_conditions[29])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[29])), GUT_boundary_conditions[29])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[29])), GUT_boundary_conditions[29]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[29])), GUT_boundary_conditions[29]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[29])), GUT_boundary_conditions[29]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mQ2
-        vector<double> MQ2initGUTBCs = GUT_boundary_conditions;
-        vector<double> MQ2windows = DSN_specific_windows(MQ2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 28);
+        vector<double> MQ2initwkBCs = Wk_boundary_conditions;
+        vector<double> MQ2windows = DSN_specific_windows(MQ2initwkBCs, current_mZ2, current_logQSUSY, 28);
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ2windows[1])), MQ2windows[1])  - copysign(sqrt(abs(MQ2windows[0])), MQ2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ2windows[1])), MQ2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ2windows[0])), MQ2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2145,19 +1909,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ2windows[3])), MQ2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ2windows[2])), MQ2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ2windows[3])), MQ2windows[3]) - copysign(sqrt(abs(MQ2windows[2])), MQ2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[28]))), boost::math::float_next(GUT_boundary_conditions[28])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[28]))), boost::math::float_prior(GUT_boundary_conditions[28])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[28])), GUT_boundary_conditions[28])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[28])), GUT_boundary_conditions[28]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[28])), GUT_boundary_conditions[28]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[28])), GUT_boundary_conditions[28]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mQ1
-        vector<double> MQ1initGUTBCs = GUT_boundary_conditions;
-        vector<double> MQ1windows = DSN_specific_windows(MQ1initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 27);
+        vector<double> MQ1initwkBCs = Wk_boundary_conditions;
+        vector<double> MQ1windows = DSN_specific_windows(MQ1initwkBCs, current_mZ2, current_logQSUSY, 27);
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ1windows[1])), MQ1windows[1])  - copysign(sqrt(abs(MQ1windows[0])), MQ1windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ1windows[1])), MQ1windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ1windows[0])), MQ1windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2170,22 +1936,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ1windows[3])), MQ1windows[3]) - copysign(sqrt(abs(MQ1windows[2])), MQ1windows[2]));
         // std::cout << DSN_soft_num / DSN_soft_denom << endl;
         // std::cout << newterm << endl;
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[27]))), boost::math::float_next(GUT_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[27]))), boost::math::float_prior(GUT_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[27])), GUT_boundary_conditions[27])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[27])), GUT_boundary_conditions[27]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[27])), GUT_boundary_conditions[27]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[27])), GUT_boundary_conditions[27]), (2.0 * nF) + (1.0 * nD) - 1.0);
-            DSN_soft_denom = abs((pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[27]))) - (pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[27]))));
-            // std::cout << DSN_soft_num / DSN_soft_denom << endl;
-            // std::cout << newterm << endl;
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mL3
-        vector<double> mL3initGUTBCs = GUT_boundary_conditions;
-        vector<double> mL3windows = DSN_specific_windows(mL3initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 32);
+        vector<double> mL3initwkBCs = Wk_boundary_conditions;
+        vector<double> mL3windows = DSN_specific_windows(mL3initwkBCs, current_mZ2, current_logQSUSY, 32);
         DSN_soft_denom = abs(copysign(sqrt(abs(mL3windows[1])), mL3windows[1])  - copysign(sqrt(abs(mL3windows[0])), mL3windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mL3windows[1])), mL3windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mL3windows[0])), mL3windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2194,19 +1959,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mL3windows[3])), mL3windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mL3windows[2])), mL3windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mL3windows[3])), mL3windows[3]) - copysign(sqrt(abs(mL3windows[2])), mL3windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[32]))), boost::math::float_next(GUT_boundary_conditions[32])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[32]))), boost::math::float_prior(GUT_boundary_conditions[32])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[32])), GUT_boundary_conditions[32])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[32])), GUT_boundary_conditions[32]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[32])), GUT_boundary_conditions[32]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[32])), GUT_boundary_conditions[32]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mL2
-        vector<double> mL2initGUTBCs = GUT_boundary_conditions;
-        vector<double> mL2windows = DSN_specific_windows(mL2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 31);
+        vector<double> mL2initwkBCs = Wk_boundary_conditions;
+        vector<double> mL2windows = DSN_specific_windows(mL2initwkBCs, current_mZ2, current_logQSUSY, 31);
         DSN_soft_denom = abs(copysign(sqrt(abs(mL2windows[1])), mL2windows[1])  - copysign(sqrt(abs(mL2windows[0])), mL2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mL2windows[1])), mL2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mL2windows[0])), mL2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2215,19 +1982,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mL2windows[3])), mL2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mL2windows[2])), mL2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mL2windows[3])), mL2windows[3]) - copysign(sqrt(abs(mL2windows[2])), mL2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[31]))), boost::math::float_next(GUT_boundary_conditions[31])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[31]))), boost::math::float_prior(GUT_boundary_conditions[31])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[31])), GUT_boundary_conditions[31])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[31])), GUT_boundary_conditions[31]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[31])), GUT_boundary_conditions[31]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[31])), GUT_boundary_conditions[31]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mL1
-        vector<double> mL1initGUTBCs = GUT_boundary_conditions;
-        vector<double> mL1windows = DSN_specific_windows(mL1initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 30);
+        vector<double> mL1initwkBCs = Wk_boundary_conditions;
+        vector<double> mL1windows = DSN_specific_windows(mL1initwkBCs, current_mZ2, current_logQSUSY, 30);
         DSN_soft_denom = abs(copysign(sqrt(abs(mL1windows[1])), mL1windows[1])  - copysign(sqrt(abs(mL1windows[0])), mL1windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mL1windows[1])), mL1windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mL1windows[0])), mL1windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2236,19 +2005,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mL1windows[3])), mL1windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mL1windows[2])), mL1windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mL1windows[3])), mL1windows[3]) - copysign(sqrt(abs(mL1windows[2])), mL1windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[30]))), boost::math::float_next(GUT_boundary_conditions[30])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[30]))), boost::math::float_prior(GUT_boundary_conditions[30])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[30])), GUT_boundary_conditions[30])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[30])), GUT_boundary_conditions[30]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[30])), GUT_boundary_conditions[30]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[30])), GUT_boundary_conditions[30]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mU3
-        vector<double> mU3initGUTBCs = GUT_boundary_conditions;
-        vector<double> mU3windows = DSN_specific_windows(mU3initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 35);
+        vector<double> mU3initwkBCs = Wk_boundary_conditions;
+        vector<double> mU3windows = DSN_specific_windows(mU3initwkBCs, current_mZ2, current_logQSUSY, 35);
         DSN_soft_denom = abs(copysign(sqrt(abs(mU3windows[1])), mU3windows[1])  - copysign(sqrt(abs(mU3windows[0])), mU3windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mU3windows[1])), mU3windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mU3windows[0])), mU3windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2257,19 +2028,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mU3windows[3])), mU3windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mU3windows[2])), mU3windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mU3windows[3])), mU3windows[3]) - copysign(sqrt(abs(mU3windows[2])), mU3windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[35]))), boost::math::float_next(GUT_boundary_conditions[35])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[35]))), boost::math::float_prior(GUT_boundary_conditions[35])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[35])), GUT_boundary_conditions[35])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[35])), GUT_boundary_conditions[35]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[35])), GUT_boundary_conditions[35]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[35])), GUT_boundary_conditions[35]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mU2
-        vector<double> mU2initGUTBCs = GUT_boundary_conditions;
-        vector<double> mU2windows = DSN_specific_windows(mU2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 34);
+        vector<double> mU2initwkBCs = Wk_boundary_conditions;
+        vector<double> mU2windows = DSN_specific_windows(mU2initwkBCs, current_mZ2, current_logQSUSY, 34);
         DSN_soft_denom = abs(copysign(sqrt(abs(mU2windows[1])), mU2windows[1])  - copysign(sqrt(abs(mU2windows[0])), mU2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mU2windows[1])), mU2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mU2windows[0])), mU2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2278,19 +2051,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mU2windows[3])), mU2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mU2windows[2])), mU2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mU2windows[3])), mU2windows[3]) - copysign(sqrt(abs(mU2windows[2])), mU2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[34]))), boost::math::float_next(GUT_boundary_conditions[34])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[34]))), boost::math::float_prior(GUT_boundary_conditions[34])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[34])), GUT_boundary_conditions[34])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[34])), GUT_boundary_conditions[34]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[34])), GUT_boundary_conditions[34]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[34])), GUT_boundary_conditions[34]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mU1
-        vector<double> mU1initGUTBCs = GUT_boundary_conditions;
-        vector<double> mU1windows = DSN_specific_windows(mU1initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 33);
+        vector<double> mU1initwkBCs = Wk_boundary_conditions;
+        vector<double> mU1windows = DSN_specific_windows(mU1initwkBCs, current_mZ2, current_logQSUSY, 33);
         DSN_soft_denom = abs(copysign(sqrt(abs(mU1windows[1])), mU1windows[1])  - copysign(sqrt(abs(mU1windows[0])), mU1windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mU1windows[1])), mU1windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mU1windows[0])), mU1windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2299,19 +2074,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mU1windows[3])), mU1windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mU1windows[2])), mU1windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mU1windows[3])), mU1windows[3]) - copysign(sqrt(abs(mU1windows[2])), mU1windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[33]))), boost::math::float_next(GUT_boundary_conditions[33])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[33]))), boost::math::float_prior(GUT_boundary_conditions[33])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[33])), GUT_boundary_conditions[33])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[33])), GUT_boundary_conditions[33]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[33])), GUT_boundary_conditions[33]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[33])), GUT_boundary_conditions[33]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mD3
-        vector<double> mD3initGUTBCs = GUT_boundary_conditions;
-        vector<double> mD3windows = DSN_specific_windows(mD3initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 38);
+        vector<double> mD3initwkBCs = Wk_boundary_conditions;
+        vector<double> mD3windows = DSN_specific_windows(mD3initwkBCs, current_mZ2, current_logQSUSY, 38);
         DSN_soft_denom = abs(copysign(sqrt(abs(mD3windows[1])), mD3windows[1])  - copysign(sqrt(abs(mD3windows[0])), mD3windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mD3windows[1])), mD3windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mD3windows[0])), mD3windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2320,19 +2097,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mD3windows[3])), mD3windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mD3windows[2])), mD3windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mD3windows[3])), mD3windows[3]) - copysign(sqrt(abs(mD3windows[2])), mD3windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[38]))), boost::math::float_next(GUT_boundary_conditions[38])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[38]))), boost::math::float_prior(GUT_boundary_conditions[38])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[38])), GUT_boundary_conditions[38])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[38])), GUT_boundary_conditions[38]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[38])), GUT_boundary_conditions[38]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[38])), GUT_boundary_conditions[38]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mD2
-        vector<double> mD2initGUTBCs = GUT_boundary_conditions;
-        vector<double> mD2windows = DSN_specific_windows(mD2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 37);
+        vector<double> mD2initwkBCs = Wk_boundary_conditions;
+        vector<double> mD2windows = DSN_specific_windows(mD2initwkBCs, current_mZ2, current_logQSUSY, 37);
         DSN_soft_denom = abs(copysign(sqrt(abs(mD2windows[1])), mD2windows[1])  - copysign(sqrt(abs(mD2windows[0])), mD2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mD2windows[1])), mD2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mD2windows[0])), mD2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2341,19 +2120,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mD2windows[3])), mD2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mD2windows[2])), mD2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mD2windows[3])), mD2windows[3]) - copysign(sqrt(abs(mD2windows[2])), mD2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[37]))), boost::math::float_next(GUT_boundary_conditions[37])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[37]))), boost::math::float_prior(GUT_boundary_conditions[37])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[37])), GUT_boundary_conditions[37])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[37])), GUT_boundary_conditions[37]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[37])), GUT_boundary_conditions[37]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[37])), GUT_boundary_conditions[37]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mD1
-        vector<double> mD1initGUTBCs = GUT_boundary_conditions;
-        vector<double> mD1windows = DSN_specific_windows(mD1initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 36);
+        vector<double> mD1initwkBCs = Wk_boundary_conditions;
+        vector<double> mD1windows = DSN_specific_windows(mD1initwkBCs, current_mZ2, current_logQSUSY, 36);
         DSN_soft_denom = abs(copysign(sqrt(abs(mD1windows[1])), mD1windows[1])  - copysign(sqrt(abs(mD1windows[0])), mD1windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mD1windows[1])), mD1windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mD1windows[0])), mD1windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2362,19 +2143,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mD1windows[3])), mD1windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mD1windows[2])), mD1windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mD1windows[3])), mD1windows[3]) - copysign(sqrt(abs(mD1windows[2])), mD1windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[36]))), boost::math::float_next(GUT_boundary_conditions[36])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[36]))), boost::math::float_prior(GUT_boundary_conditions[36])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[36])), GUT_boundary_conditions[36])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[36])), GUT_boundary_conditions[36]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[36])), GUT_boundary_conditions[36]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[36])), GUT_boundary_conditions[36]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mE3
-        vector<double> mE3initGUTBCs = GUT_boundary_conditions;
-        vector<double> mE3windows = DSN_specific_windows(mE3initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 41);
+        vector<double> mE3initwkBCs = Wk_boundary_conditions;
+        vector<double> mE3windows = DSN_specific_windows(mE3initwkBCs, current_mZ2, current_logQSUSY, 41);
         DSN_soft_denom = abs(copysign(sqrt(abs(mE3windows[1])), mE3windows[1])  - copysign(sqrt(abs(mE3windows[0])), mE3windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mE3windows[1])), mE3windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mE3windows[0])), mE3windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2383,19 +2166,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mE3windows[3])), mE3windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mE3windows[2])), mE3windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mE3windows[3])), mE3windows[3]) - copysign(sqrt(abs(mE3windows[2])), mE3windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[41]))), boost::math::float_next(GUT_boundary_conditions[41])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[41]))), boost::math::float_prior(GUT_boundary_conditions[41])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[41])), GUT_boundary_conditions[41])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[41])), GUT_boundary_conditions[41]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[41])), GUT_boundary_conditions[41]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[41])), GUT_boundary_conditions[41]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mE2
-        vector<double> mE2initGUTBCs = GUT_boundary_conditions;
-        vector<double> mE2windows = DSN_specific_windows(mE2initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 40);
+        vector<double> mE2initwkBCs = Wk_boundary_conditions;
+        vector<double> mE2windows = DSN_specific_windows(mE2initwkBCs, current_mZ2, current_logQSUSY, 40);
         DSN_soft_denom = abs(copysign(sqrt(abs(mE2windows[1])), mE2windows[1])  - copysign(sqrt(abs(mE2windows[0])), mE2windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mE2windows[1])), mE2windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mE2windows[0])), mE2windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2404,19 +2189,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mE2windows[3])), mE2windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mE2windows[2])), mE2windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mE2windows[3])), mE2windows[3]) - copysign(sqrt(abs(mE2windows[2])), mE2windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[40]))), boost::math::float_next(GUT_boundary_conditions[40])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[40]))), boost::math::float_prior(GUT_boundary_conditions[40])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[40])), GUT_boundary_conditions[40])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[40])), GUT_boundary_conditions[40]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[40])), GUT_boundary_conditions[40]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[40])), GUT_boundary_conditions[40]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with mE1
-        vector<double> mE1initGUTBCs = GUT_boundary_conditions;
-        vector<double> mE1windows = DSN_specific_windows(mE1initGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 39);
+        vector<double> mE1initwkBCs = Wk_boundary_conditions;
+        vector<double> mE1windows = DSN_specific_windows(mE1initwkBCs, current_mZ2, current_logQSUSY, 39);
         DSN_soft_denom = abs(copysign(sqrt(abs(mE1windows[1])), mE1windows[1])  - copysign(sqrt(abs(mE1windows[0])), mE1windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mE1windows[1])), mE1windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mE1windows[0])), mE1windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2425,19 +2212,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(mE1windows[3])), mE1windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(mE1windows[2])), mE1windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(mE1windows[3])), mE1windows[3]) - copysign(sqrt(abs(mE1windows[2])), mE1windows[2]));
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(copysign(sqrt(abs(boost::math::float_next(GUT_boundary_conditions[39]))), boost::math::float_next(GUT_boundary_conditions[39])), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(copysign(sqrt(abs(boost::math::float_prior(GUT_boundary_conditions[39]))), boost::math::float_prior(GUT_boundary_conditions[39])), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(copysign(sqrt(abs(GUT_boundary_conditions[39])), GUT_boundary_conditions[39])) - boost::math::float_prior(copysign(sqrt(abs(GUT_boundary_conditions[39])), GUT_boundary_conditions[39]))));
-            DSN_soft_num = soft_prob_calc(copysign(pow(10.0, 0.5) * sqrt(abs(GUT_boundary_conditions[39])), GUT_boundary_conditions[39]), (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(copysign(pow(10.0, -0.5) * sqrt(abs(GUT_boundary_conditions[39])), GUT_boundary_conditions[39]), (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39])) - boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39])));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39])), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39])), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with at
-        vector<double> atinitGUTBCs = GUT_boundary_conditions;
-        vector<double> atwindows = DSN_specific_windows(atinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 16);
+        vector<double> atinitwkBCs = Wk_boundary_conditions;
+        vector<double> atwindows = DSN_specific_windows(atinitwkBCs, current_mZ2, current_logQSUSY, 16);
         DSN_soft_denom = abs(atwindows[1] - atwindows[0]);
         DSN_soft_num = soft_prob_calc(atwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(atwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2446,19 +2235,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(atwindows[3] - atwindows[2]);
         DSN_soft_num = soft_prob_calc(atwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(atwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[16]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[16]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[16]) - boost::math::float_prior(GUT_boundary_conditions[16])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[16], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[16], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[16]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[16]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[16]) - boost::math::float_prior(Wk_boundary_conditions[16]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[16]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[16]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[16])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[16])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with ac
-        vector<double> acinitGUTBCs = GUT_boundary_conditions;
-        vector<double> acwindows = DSN_specific_windows(acinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 17);
+        vector<double> acinitwkBCs = Wk_boundary_conditions;
+        vector<double> acwindows = DSN_specific_windows(acinitwkBCs, current_mZ2, current_logQSUSY, 17);
         DSN_soft_denom = abs(acwindows[1] - acwindows[0]);
         DSN_soft_num = soft_prob_calc(acwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(acwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2467,19 +2258,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(acwindows[3] - acwindows[2]);
         DSN_soft_num = soft_prob_calc(acwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(acwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[17]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[17]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[17]) - boost::math::float_prior(GUT_boundary_conditions[17])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[17], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[17], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[17]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[17]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[17]) - boost::math::float_prior(Wk_boundary_conditions[17]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[17]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[17]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[17])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[17])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with au    
-        vector<double> auinitGUTBCs = GUT_boundary_conditions;
-        vector<double> auwindows = DSN_specific_windows(auinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 18);
+        vector<double> auinitwkBCs = Wk_boundary_conditions;
+        vector<double> auwindows = DSN_specific_windows(auinitwkBCs, current_mZ2, current_logQSUSY, 18);
         DSN_soft_denom = abs(auwindows[1] - auwindows[0]);
         DSN_soft_num = soft_prob_calc(auwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(auwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2488,19 +2281,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(auwindows[3] - auwindows[2]);
         DSN_soft_num = soft_prob_calc(auwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(auwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[18]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[18]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[18]) - boost::math::float_prior(GUT_boundary_conditions[18])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[18], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[18], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[18]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[18]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[18]) - boost::math::float_prior(Wk_boundary_conditions[18]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[18]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[18]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[18])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[18])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with ab
-        vector<double> abinitGUTBCs = GUT_boundary_conditions;
-        vector<double> abwindows = DSN_specific_windows(abinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 19);
+        vector<double> abinitwkBCs = Wk_boundary_conditions;
+        vector<double> abwindows = DSN_specific_windows(abinitwkBCs, current_mZ2, current_logQSUSY, 19);
         DSN_soft_denom = abs(abwindows[1] - abwindows[0]);
         DSN_soft_num = soft_prob_calc(abwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(abwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2509,19 +2304,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(abwindows[3] - abwindows[2]);
         DSN_soft_num = soft_prob_calc(abwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(abwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[19]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[19]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[19]) - boost::math::float_prior(GUT_boundary_conditions[19])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[19], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[19], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[19]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[19]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[19]) - boost::math::float_prior(Wk_boundary_conditions[19]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[19]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[19]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[19])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[19])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with as
-        vector<double> asinitGUTBCs = GUT_boundary_conditions;
-        vector<double> aswindows = DSN_specific_windows(asinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 20);
+        vector<double> asinitwkBCs = Wk_boundary_conditions;
+        vector<double> aswindows = DSN_specific_windows(asinitwkBCs, current_mZ2, current_logQSUSY, 20);
         DSN_soft_denom = abs(aswindows[1] - aswindows[0]);
         DSN_soft_num = soft_prob_calc(aswindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(aswindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2530,19 +2327,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(aswindows[3] - aswindows[2]);
         DSN_soft_num = soft_prob_calc(aswindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(aswindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[20]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[20]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[20]) - boost::math::float_prior(GUT_boundary_conditions[20])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[20], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[20], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[20]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[20]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[20]) - boost::math::float_prior(Wk_boundary_conditions[20]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[20]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[20]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[20])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[20])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with ad    
-        vector<double> adinitGUTBCs = GUT_boundary_conditions;
-        vector<double> adwindows = DSN_specific_windows(adinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 21);
+        vector<double> adinitwkBCs = Wk_boundary_conditions;
+        vector<double> adwindows = DSN_specific_windows(adinitwkBCs, current_mZ2, current_logQSUSY, 21);
         DSN_soft_denom = abs(adwindows[1] - adwindows[0]);
         DSN_soft_num = soft_prob_calc(adwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(adwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2551,19 +2350,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(adwindows[3] - adwindows[2]);
         DSN_soft_num = soft_prob_calc(adwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(adwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[21]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[21]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[21]) - boost::math::float_prior(GUT_boundary_conditions[21])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[21], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[21], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[21]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[21]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[21]) - boost::math::float_prior(Wk_boundary_conditions[21]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[21]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[21]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[21])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[21])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with atau
-        vector<double> atauinitGUTBCs = GUT_boundary_conditions;
-        vector<double> atauwindows = DSN_specific_windows(atauinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 22);
+        vector<double> atauinitwkBCs = Wk_boundary_conditions;
+        vector<double> atauwindows = DSN_specific_windows(atauinitwkBCs, current_mZ2, current_logQSUSY, 22);
         DSN_soft_denom = abs(atauwindows[1] - atauwindows[0]);
         DSN_soft_num = soft_prob_calc(atauwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(atauwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2572,19 +2373,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(atauwindows[3] - atauwindows[2]);
         DSN_soft_num = soft_prob_calc(atauwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(atauwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[22]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[22]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[22]) - boost::math::float_prior(GUT_boundary_conditions[22])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[22], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[22], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[22]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[22]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[22]) - boost::math::float_prior(Wk_boundary_conditions[22]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[22]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[22]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[22])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[22])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
         
         // Now do same thing with amu
-        vector<double> amuinitGUTBCs = GUT_boundary_conditions;
-        vector<double> amuwindows = DSN_specific_windows(amuinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 23);
+        vector<double> amuinitwkBCs = Wk_boundary_conditions;
+        vector<double> amuwindows = DSN_specific_windows(amuinitwkBCs, current_mZ2, current_logQSUSY, 23);
         DSN_soft_denom = abs(amuwindows[1] - amuwindows[0]);
         DSN_soft_num = soft_prob_calc(amuwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(amuwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2593,19 +2396,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(amuwindows[3] - amuwindows[2]);
         DSN_soft_num = soft_prob_calc(amuwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(amuwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[23]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[23]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[23]) - boost::math::float_prior(GUT_boundary_conditions[23])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[23], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[23], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[23]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[23]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[23]) - boost::math::float_prior(Wk_boundary_conditions[23]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[23]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[23]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[23])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[23])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with ae    
-        vector<double> aeinitGUTBCs = GUT_boundary_conditions;
-        vector<double> aewindows = DSN_specific_windows(aeinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT, 24);
+        vector<double> aeinitwkBCs = Wk_boundary_conditions;
+        vector<double> aewindows = DSN_specific_windows(aeinitwkBCs, current_mZ2, current_logQSUSY, 24);
         DSN_soft_denom = abs(aewindows[1] - aewindows[0]);
         DSN_soft_num = soft_prob_calc(aewindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(aewindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2614,19 +2419,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(aewindows[3] - aewindows[2]);
         DSN_soft_num = soft_prob_calc(aewindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(aewindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[24]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[24]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[24]) - boost::math::float_prior(GUT_boundary_conditions[24])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[24], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[24], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[24]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[24]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[24]) - boost::math::float_prior(Wk_boundary_conditions[24]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[24]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[24]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[24])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[24])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
 
         // Now do same thing with B = b/mu;
-        vector<double> BinitGUTBCs = GUT_boundary_conditions;
-        vector<double> Bwindows = DSN_B_windows(BinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT);
+        vector<double> BinitwkBCs = Wk_boundary_conditions;
+        vector<double> Bwindows = DSN_B_windows(BinitwkBCs, current_mZ2, current_logQSUSY);
         DSN_soft_denom = abs(Bwindows[1] - Bwindows[0]);
         DSN_soft_num = soft_prob_calc(Bwindows[1], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(Bwindows[0], (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -2635,19 +2442,21 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_soft_denom = abs(Bwindows[3] - Bwindows[2]);
         DSN_soft_num = soft_prob_calc(Bwindows[3], (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(Bwindows[2], (2.0 * nF) + (1.0 * nD) - 1.0);
-        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan((DSN_soft_num / DSN_soft_denom))) || ((DSN_soft_num / DSN_soft_denom) == 0.0) || isinf((DSN_soft_num / DSN_soft_denom))) {
-            newterm = (soft_prob_calc(boost::math::float_next(GUT_boundary_conditions[42] / GUT_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0)
-                       - soft_prob_calc(boost::math::float_prior(GUT_boundary_conditions[42] / GUT_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0))\
-                / (abs(boost::math::float_next(GUT_boundary_conditions[42] / GUT_boundary_conditions[6]) - boost::math::float_prior(GUT_boundary_conditions[42] / GUT_boundary_conditions[6])));
-            DSN_soft_num = soft_prob_calc(pow(10.0, 0.5) * GUT_boundary_conditions[42] / GUT_boundary_conditions[6], (2.0 * nF) + (1.0 * nD) - 1.0)\
-                - soft_prob_calc(pow(10.0, -0.5) * GUT_boundary_conditions[42] / GUT_boundary_conditions[6], (2.0 * nF) + (1.0 * nD) - 1.0);
+        if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]) - boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]));
+            newterm = DSN_soft_num / DSN_soft_denom;
+            DSN_soft_num = soft_prob_calc(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0)\
+                - soft_prob_calc(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6]), (2.0 * nF) + (1.0 * nD) - 1.0);
+            DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
     } else {
         // Compute mu windows around original point
-        vector<double> muinitGUTBCs = GUT_boundary_conditions;
-        vector<double> muwindows = DSN_mu_windows(muinitGUTBCs, current_mZ2, current_logQSUSY, current_logQGUT);
+        vector<double> muinitwkBCs = Wk_boundary_conditions;
+        vector<double> muwindows = DSN_mu_windows(muinitwkBCs, current_mZ2, current_logQSUSY);
         DSN_higgsino = abs(log10(abs(muwindows[1] / muwindows[0])));
         DSN_higgsino /= abs(muwindows[1] - muwindows[0]);
         newterm = DSN_higgsino;
@@ -2655,9 +2464,9 @@ double DSN_calc(int precselno, std::vector<double> GUT_boundary_conditions,
         DSN_higgsino = abs(log10(abs(muwindows[3] / muwindows[2])));
         DSN_higgsino /= abs(muwindows[3] - muwindows[2]);
         if ((abs(DSN_higgsino - newterm) < numeric_limits<double>::epsilon()) || (isnan(newterm)) || (newterm == 0.0) || isinf(newterm) || (isnan(DSN_higgsino)) || (DSN_higgsino == 0.0) || isinf(DSN_higgsino)) {
-            newterm = abs(log10(1.0 + (numeric_limits<double>::epsilon() * abs(GUT_boundary_conditions[6]))))\
-                / abs(numeric_limits<double>::epsilon() * abs(GUT_boundary_conditions[6]));
-            DSN_higgsino = 1.0 / abs(((pow(10.0, 0.5) - pow(10.0, -0.5))) * abs(GUT_boundary_conditions[6]));
+            newterm = abs(log10(1.0 + (numeric_limits<double>::epsilon() * abs(Wk_boundary_conditions[6]))))\
+                / abs(numeric_limits<double>::epsilon() * abs(Wk_boundary_conditions[6]));
+            DSN_higgsino = 1.0 / abs(((pow(10.0, 0.5) - pow(10.0, -0.5))) * abs(Wk_boundary_conditions[6]));
         }
         DSN += abs(log10(abs(DSN_higgsino)) - log10(abs(newterm)));
         std::cout << "DSN after higgsino = " << DSN << endl;
