@@ -22,6 +22,17 @@
 
 using namespace std;
 
+bool DSNabsValCompare(const DSNLabeledValue& a, const DSNLabeledValue& b) {
+    return std::abs(a.value) < std::abs(b.value);
+}
+
+std::vector<DSNLabeledValue> sortAndReturnDSN(const std::vector<DSNLabeledValue>& concatenatedList) {
+    std::vector<DSNLabeledValue> sortedList = concatenatedList;
+    std::sort(sortedList.begin(), sortedList.end(), DSNabsValCompare);
+    std::reverse(sortedList.begin(), sortedList.end());
+    return sortedList;
+}
+
 double signum(double x) {
     if (x < 0) {
         return -1.0;
@@ -53,7 +64,6 @@ bool EWSB_Check(vector<double>& weak_boundary_conditions, vector<double>& radiat
     bool checkifEWSB = true;
 
     if (abs(2.0 * weak_boundary_conditions[42]) > abs((2.0 * pow(weak_boundary_conditions[6], 2.0)) + weak_boundary_conditions[25] + radiat_correcs[0] + weak_boundary_conditions[26] + radiat_correcs[1])) {
-        // std::cout << "Scalar pot'l UFB at loop-level." << endl;
         checkifEWSB = false;
     }
     return checkifEWSB;
@@ -68,7 +78,6 @@ bool CCB_Check(vector<double>& weak_boundary_conditions) {
     }
     for (int i = 27; i < 42; ++i) {
         if (weak_boundary_conditions[i] < 0) {
-            // std::cout << "CCB minima" << endl;
             checkifNoCCB = false;
         }
     }
@@ -105,7 +114,7 @@ vector<double> single_var_deriv_approxes(vector<double>& original_weak_condition
     double p_orig, h_p, p_plus, p_minus, p_plusplus, p_minusminus;
     if (idx_to_shift == 42) {
         p_orig = original_weak_conditions[idx_to_shift] / original_weak_conditions[6];
-        h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));//max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), 0.2), 1.0e-6);
+        h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));
         p_plus = p_orig + h_p;
         p_minus = p_orig - h_p;
         p_plusplus = p_plus + h_p;
@@ -120,7 +129,7 @@ vector<double> single_var_deriv_approxes(vector<double>& original_weak_condition
     }
     else {
         p_orig = original_weak_conditions[idx_to_shift];
-        h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));//max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), 0.2), 1.0e-6);
+        h_p = min(0.95, max(pow(10.25 * (boost::math::float_next(abs(p_orig)) - abs(p_orig)), (1.0 / 5.0)), 1.0e-9));
         p_plus = p_orig + h_p;
         p_minus = p_orig - h_p;
         p_plusplus = p_plus + h_p;
@@ -153,7 +162,7 @@ vector<double> single_var_deriv_approxes(vector<double>& original_weak_condition
     vector<double> newtanb_minusminus_p_minusminus_weak = original_weak_conditions;
 
     double tanb_orig = original_weak_conditions[43];
-    double h_tanb = pow(10.25 * (boost::math::float_next(abs(tanb_orig)) - abs(tanb_orig)), (1.0 / 5.0));//pow(10.25 * (boost::math::float_next(abs(tanb_orig)) - abs(tanb_orig)), 0.2);
+    double h_tanb = pow(10.25 * (boost::math::float_next(abs(tanb_orig)) - abs(tanb_orig)), (1.0 / 5.0));
     
     newtanbweak_plus[43] = tanb_orig + h_tanb;
     newtanbweak_plusplus[43] = tanb_orig + (2.0 * h_tanb);
@@ -408,7 +417,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
     try {
         vector<double> current_derivatives = single_var_deriv_approxes(Bnewweaks_minus, Bnew_mZ2minus, 42, BnewlogQSUSY);
         for (double deriv_value : current_derivatives) {
-            //std::cout << "Derivative: " << deriv_value << endl;
             if (isnan(deriv_value) || isinf(deriv_value)) {
                 BminusEWSB = false;
             }
@@ -421,7 +429,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
                                                         + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                         + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         
-        // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
         if (abs(mZ2shift_minus) > 1.0) {
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (Bstepminus));
         }
@@ -433,12 +440,8 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             too_sensitive_flag_minus = true;
             B_weak_minus = (Bnewweaks_minus[42] / Wk_boundary_conditions[6]) + Bstepminus;
         } 
-        // B convergence becomes bad when B is small (i.e. < 10 GeV), so cutoff at abs(B) = 10 GeV
         while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > (45.5938 * 45.5938)) && (Bnew_mZ2minus < (364.7504 * 364.7504)))) {
             bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
-            // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
-            // std::cout << "New B = " << Bnewweaks_minus[42] / Bnewweaks_minus[6] << endl;
-            // std::cout << "New tanb = " << Bnewweaks_minus[43] << endl;
             vector<double> checkweaksols = Bnewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
             BminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -476,7 +479,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             }        
 
             if (!BminusEWSB) {
-                // std::cout << "EWSB issue in convergence loop" << endl;
                 Bnewweaks_minus[42] = Boldweaks_minus[42];
                 Bnewweaks_minus[43] = Boldweaks_minus[43];
                 break;
@@ -496,7 +498,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
                 too_sensitive_flag_minus = true;
             } 
         }
-        std::cout << "B(ABDS, minus) = " << Bnewweaks_minus[42] / Wk_boundary_conditions[6] << endl; 
         
         B_weak_minus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
         Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
@@ -517,10 +518,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
         } 
         while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > (45.5938 * 45.5938)) && (Bnew_mZ2plus < (364.7504 * 364.7504)))) {
             bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
-            
-            // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
-            // std::cout << "New B = " << Bnewweaks_plus[42] / Bnewweaks_plus[6] << endl;
-            // std::cout << "New tanb = " << Bnewweaks_plus[43] << endl;
             vector<double> checkweaksols = Bnewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
             BplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -577,8 +574,7 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             if ((abs(mZ2shift_plus) > 1.0)) {
                 too_sensitive_flag_plus = true;
             } 
-        }
-        std::cout << "B(ABDS, plus) = " << Bnewweaks_plus[42] / Wk_boundary_conditions[6] << endl; 
+        } 
         
         B_weak_plus = Bnewweaks_plus[42] / Wk_boundary_conditions[6];
         
@@ -604,9 +600,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
 
         while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0))) {
             bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
-            // std::cout << "New mZ = " << sqrt(Bnew_mZ2minus) << endl;
-            // std::cout << "New B = " << Bnewweaks_minus[42] / Bnewweaks_minus[6] << endl;
-            // std::cout << "New tanb = " << Bnewweaks_minus[43] << endl;
             vector<double> checkweaksols = Bnewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
             BminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -663,7 +656,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
                 too_sensitive_flag_minus = true;
             } 
         }
-        std::cout << "B(total, minus) = " << Bnewweaks_minus[42] / Wk_boundary_conditions[6] << endl; 
         B_TOTAL_weak_minus = Bnewweaks_minus[42] / Wk_boundary_conditions[6];
 
         Bstepplus = (boost::math::float_next((Bnewweaks_plus[42] / Wk_boundary_conditions[6])) - (Bnewweaks_plus[42] / Wk_boundary_conditions[6]));
@@ -685,9 +677,6 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
 
         while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0))) {
             bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
-            // std::cout << "New mZ = " << sqrt(Bnew_mZ2plus) << endl;
-            // std::cout << "New B = " << Bnewweaks_plus[42] / Bnewweaks_plus[6] << endl;
-            // std::cout << "New tanb = " << Bnewweaks_plus[43] << endl;
             
             vector<double> checkweaksols = Bnewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2plus);
@@ -746,11 +735,10 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
                 too_sensitive_flag_plus = true;
             } 
         }
-        std::cout << "B(total, plus) = " << Bnewweaks_plus[42] / Wk_boundary_conditions[6] << endl; 
         B_TOTAL_weak_plus = Bnewweaks_plus[42] / Wk_boundary_conditions[6];
 
         if ((abs(B_TOTAL_weak_minus - B_weak_minus) < 1.0e-12)) {
-            B_TOTAL_weak_minus = B_weak_minus + (Bstepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+            B_TOTAL_weak_minus = B_weak_minus + (Bstepminus / abs(mZ2shift_minus));
         }
         if ((abs(B_TOTAL_weak_plus - B_weak_plus) < 1.0e-12)) {
             B_TOTAL_weak_plus = B_weak_plus + (Bstepplus / abs(mZ2shift_plus));
@@ -895,9 +883,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         } 
         while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > (45.5938 * 45.5938)) && (pinew_mZ2minus < (364.7504 * 364.7504)))) {
             bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
-            // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
-            // std::cout << "New " << paramName << " = " << pinewweaks_minus[SpecificIndex] << endl;
-            // std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
             vector<double> checkweaksols = pinewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
             piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -953,7 +938,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
                 too_sensitive_flag_minus = true;
             } 
         }
-        std::cout << paramName << "(ABDS, minus) = " << pinewweaks_minus[SpecificIndex] << endl; 
         pi_weak_minus = pinewweaks_minus[SpecificIndex];
 
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
@@ -978,9 +962,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
         }
         while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > (45.5938 * 45.5938)) && (pinew_mZ2plus < (364.7504 * 364.7504)))) {
             bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
-            // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
-            // std::cout << "New " << paramName << " = " << pinewweaks_plus[SpecificIndex] << endl;
-            // std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
             vector<double> checkweaksols = pinewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
             piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1036,7 +1017,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
                 too_sensitive_flag_plus = true;
             } 
         }
-        std::cout << paramName << "(ABDS, plus) = " << pinewweaks_plus[SpecificIndex] << endl; 
         pi_weak_plus = pinewweaks_plus[SpecificIndex];
         
         std::cout << "ABDS window established for " << paramName << " variation." << endl;
@@ -1064,9 +1044,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
 
         while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0))) {
             bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
-            // std::cout << "New mZ = " << sqrt(pinew_mZ2minus) << endl;
-            // std::cout << "New " << paramName << " = " << pinewweaks_minus[SpecificIndex] << endl;
-            // std::cout << "New tanb = " << pinewweaks_minus[43] << endl;
             vector<double> checkweaksols = pinewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
             piminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1122,7 +1099,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
                 too_sensitive_flag_minus = true;
             } 
         }
-        std::cout << paramName << "(total, minus) = " << pinewweaks_minus[SpecificIndex] << endl; 
         pi_TOTAL_weak_minus = pinewweaks_minus[SpecificIndex];
 
         if ((SpecificIndex >= 25) && (SpecificIndex <= 41)) {
@@ -1146,9 +1122,6 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
 
         while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0))) {
             bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
-            // std::cout << "New mZ = " << sqrt(pinew_mZ2plus) << endl;
-            // std::cout << "New " << paramName << " = " << pinewweaks_plus[SpecificIndex] << endl;
-            // std::cout << "New tanb = " << pinewweaks_plus[43] << endl;
             vector<double> checkweaksols = pinewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
             piplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1204,11 +1177,10 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
                 too_sensitive_flag_plus = true;
             } 
         }
-        std::cout << paramName << "(total, plus) = " << pinewweaks_plus[SpecificIndex] << endl; 
         pi_TOTAL_weak_plus = pinewweaks_plus[SpecificIndex];
 
         if ((abs(pi_TOTAL_weak_minus - pi_weak_minus) < 1.0e-12)) {
-            pi_TOTAL_weak_minus = pi_weak_minus + (pistepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+            pi_TOTAL_weak_minus = pi_weak_minus + (pistepminus / abs(mZ2shift_minus));
         }
         if ((abs(pi_TOTAL_weak_plus - pi_weak_plus) < 1.0e-12)) {
             pi_TOTAL_weak_plus = pi_weak_plus + (pistepplus / abs(mZ2shift_plus));
@@ -1272,7 +1244,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     try {
         vector<double> current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
         for (double deriv_value : current_derivatives) {
-            //std::cout << "Derivative: " << deriv_value << endl;
             if (isnan(deriv_value) || isinf(deriv_value)) {
                 muminusEWSB = false;
             }
@@ -1284,25 +1255,18 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
                                                         + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                         + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         double original_mZ2shift_minus = mZ2shift_minus;
-        // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
         if (abs(mZ2shift_minus) > 1.0) {
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
         }
         double tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
-        // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
         bool too_sensitive_flag_minus = false, too_sensitive_flag_plus = false;
         double mu_weak_minus, mu_weak_plus;
         if ((abs(mZ2shift_minus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag_minus = true;
             mu_weak_minus = munewweaks_minus[6] + mustepminus;
         } 
-        // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
         while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > (45.5938 * 45.5938)) && (munew_mZ2minus < (364.7504 * 364.7504)))) {
-            bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-            // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
-            // std::cout << "New mu = " << munewweaks_minus[6] << endl;
-            // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
+            bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);
             vector<double> checkweaksols = munewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
             muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1317,16 +1281,9 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             if (!(muminusNoCCB)) {
                 break;
             } 
-            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
-            // for (double value : tree_level_masses) {
-            //     if (value < 0) {
-            //         muminusNoCCB = false;
-            //     }
-            // }
             if (!(muminusNoCCB)) {
                 break;
             } 
-            // std::cout << "Mu step size = " << mustep << endl;
             vector<double> muoldweaks_minus = munewweaks_minus;
             munewweaks_minus[6] += bigmustep;
             munewweaks_minus[42] = (munewweaks_minus[42] / muoldweaks_minus[6]) * munewweaks_minus[6];
@@ -1339,7 +1296,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[43] += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * tanbshift_minus / abs(mZ2shift_minus);
             // Now adjust Yukawas for next iteration.
             if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
-                // std::cout << "Yukawas non-perturbative" << endl;
                 muminusEWSB = false;
             } else {
                 for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1352,7 +1308,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }        
 
             if (!muminusEWSB) {
-                // std::cout << "EWSB issue in convergence loop" << endl;
                 munewweaks_minus[6] = muoldweaks_minus[6];
                 munewweaks_minus[42] = muoldweaks_minus[42];
                 munewweaks_minus[43] = muoldweaks_minus[43];
@@ -1370,16 +1325,13 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }
             tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
             if ((abs(mZ2shift_minus) > 1.0)) {
-                // std::cout << "Sensitivity too high in ABDS minus shift routine" << endl;
                 too_sensitive_flag_minus = true;
-                //mu_weak_minus = munewweaks_minus[6] - mustep;
             } 
         }
-        std::cout << "mu(ABDS, minus) = " << munewweaks_minus[6] << endl; 
         
         mu_weak_minus = munewweaks_minus[6];
         
-        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);// * abs(munewweaks_minus[6]);
+        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);
         current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
         
         double mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
@@ -1388,24 +1340,16 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
                                                         + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         double tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
 
-        // std::cout << "mZ^2 plus shift: " << mZ2shift_plus << endl;
         if (abs(mZ2shift_plus) > 1.0) {
             mZ2shift_plus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus));
         }
-        // std::cout << "tanb plus shift: " << tanbshift_plus << endl;
         if ((abs(mZ2shift_plus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag_plus = true;
             mu_weak_plus = munewweaks_plus[6] + (mustepplus / mZ2shift_plus);
         } 
         // Mu convergence becomes bad when mu is small (i.e. < 10 GeV), so cutoff at abs(mu) = 10 GeV
         while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > (45.5938 * 45.5938)) && (munew_mZ2plus < (364.7504 * 364.7504)))) {
-            bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-            // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
-            // std::cout << "New mu = " << munewweaks_plus[6] << endl;
-            // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
-            // std::cout << "EWSB: " << muplusEWSB << endl;
-            // std::cout << "CCB: " << muplusNoCCB << endl;
+            bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);
             vector<double> checkweaksols = munewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
             muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1420,16 +1364,9 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             if (!(muplusNoCCB)) {
                 break;
             } 
-            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
-            // for (double value : tree_level_masses) {
-            //     if (value < 0) {
-            //         muplusNoCCB = false;
-            //     }
-            // }
             if (!(muplusNoCCB)) {
                 break;
             } 
-            // std::cout << "Mu step size = " << mustep << endl;
             vector<double> muoldweaks_plus = munewweaks_plus;
             munewweaks_plus[6] += bigmustep;
             munewweaks_plus[42] = (munewweaks_plus[42] / muoldweaks_plus[6]) * munewweaks_plus[6];
@@ -1443,7 +1380,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[43] += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * tanbshift_plus / abs(mZ2shift_plus);
             // Now adjust Yukawas for next iteration.
             if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
-                // std::cout << "Yukawas non-perturbative" << endl;
                 muplusEWSB = false;
             } else {
                 for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1456,7 +1392,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }        
 
             if (!muplusEWSB) {
-                // std::cout << "EWSB issue in convergence loop" << endl;
                 munewweaks_plus[6] = muoldweaks_plus[6];
                 munewweaks_plus[42] = muoldweaks_plus[42];
                 munewweaks_plus[43] = muoldweaks_plus[43];
@@ -1474,12 +1409,9 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }
             tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
             if ((abs(mZ2shift_plus) > 1.0)) {
-                // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
                 too_sensitive_flag_plus = true;
-                //mu_weak_plus = munewweaks_plus[6] - mustep;
             } 
-        }
-        std::cout << "mu(ABDS, plus) = " << munewweaks_plus[6] << endl; 
+        } 
         
         mu_weak_plus = munewweaks_plus[6];
         
@@ -1490,14 +1422,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         bool ABDSpluscheck = (muplusEWSB && muplusNoCCB);
         bool total_ABDScheck = (ABDSminuscheck && ABDSpluscheck);
         double mu_TOTAL_weak_minus, mu_TOTAL_weak_plus;
-        // if ((!(total_ABDScheck)) || too_sensitive_flag) {
-        //     mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
-        //     mu_TOTAL_weak_plus = mu_weak_plus + (mustepplus / abs(mZ2shift_plus));
-
-        //     std::cout << "Had to stop early. General window established for mu variation." << endl;
-
-        //     return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
-        // }
 
         mustepminus = (boost::math::float_prior(munewweaks_minus[6]) - munewweaks_minus[6]); 
         current_derivatives = single_var_deriv_approxes(munewweaks_minus, munew_mZ2minus, 6, munewlogQSUSY);
@@ -1507,23 +1431,16 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
                                                         + (current_derivatives[0] * current_derivatives[0] * current_derivatives[4])
                                                         + (2.0 * current_derivatives[0] * current_derivatives[5]) + current_derivatives[6])));
         
-        // std::cout << "mZ^2 minus shift: " << mZ2shift_minus << endl;
         if (abs(mZ2shift_minus) > 1.0) {
             mZ2shift_minus = (((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepminus));
         }
         tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
-        // std::cout << "tanb minus shift: " << tanbshift_minus << endl;
         if ((abs(mZ2shift_minus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag_minus = true;
-            //mu_weak_minus = munewweaks_minus[6] - mustep;
         } 
 
         while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0))) {
-            bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);// * ((2.0 * sqrt(munew_mZ2minus)) + 1.0) / abs(mZ2shift_minus);
-            // std::cout << "New mZ = " << sqrt(munew_mZ2minus) << endl;
-            // std::cout << "New mu = " << munewweaks_minus[6] << endl;
-            // std::cout << "New tanb = " << munewweaks_minus[43] << endl;
+            bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);
             vector<double> checkweaksols = munewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
             muminusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1533,23 +1450,14 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }
             muminusNoCCB = CCB_Check(checkweaksols);
             if (!(muminusEWSB) || !(muminusNoCCB)) {
-                // std::cout << "Stopped due to EWSB issues" << endl;
                 break;
             } 
             if (!(muminusNoCCB)) {
-                // std::cout << "Stopped due to CCB issues" << endl;
                 break;
             } 
-            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2minus);
-            // for (double value : tree_level_masses) {
-            //     if (value < 0) {
-            //         muminusNoCCB = false;
-            //     }
-            // }
             if (!(muminusNoCCB)) {
                 break;
             } 
-            // std::cout << "Mu step size = " << mustep << endl;
             vector<double> muoldweaks_minus = munewweaks_minus;
             munewweaks_minus[6] += bigmustep;
             munewweaks_minus[42] = (munewweaks_minus[42] / muoldweaks_minus[6]) * munewweaks_minus[6];
@@ -1563,7 +1471,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_minus[43] += ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * tanbshift_minus / abs(mZ2shift_minus);
             // Now adjust Yukawas for next iteration.
             if ((munewweaks_minus[43] < 3.0) || (munewweaks_minus[43] > 60.0)) {
-                // std::cout << "Yukawas non-perturbative" << endl;
                 muminusEWSB = false;
             } else {
                 for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1576,7 +1483,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }        
 
             if (!muminusEWSB) {
-                // std::cout << "EWSB issue in convergence loop" << endl;
                 munewweaks_minus[6] = muoldweaks_minus[6];
                 munewweaks_minus[42] = muoldweaks_minus[42];
                 munewweaks_minus[43] = muoldweaks_minus[43];
@@ -1594,14 +1500,11 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }
             tanbshift_minus = (current_derivatives[0] * mustepminus) + (0.5 * current_derivatives[1] * mustepminus * mustepminus);
             if ((abs(mZ2shift_minus) > 1.0)) {
-                // std::cout << "Sensitivity too high in total minus" << endl;
                 too_sensitive_flag_minus = true;
-                //mu_weak_minus = munewweaks_minus[6] - mustep;
             } 
         }
-        std::cout << "mu(total, minus) = " << munewweaks_minus[6] << endl; 
         mu_TOTAL_weak_minus = munewweaks_minus[6];
-        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);// * abs(munewweaks_minus[6]);
+        mustepplus = (boost::math::float_next(munewweaks_plus[6]) - munewweaks_plus[6]);
         current_derivatives = single_var_deriv_approxes(munewweaks_plus, munew_mZ2plus, 6, munewlogQSUSY);
 
         mZ2shift_plus = ((((current_derivatives[0] * current_derivatives[2]) + current_derivatives[3]) * (mustepplus))
@@ -1613,16 +1516,12 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
         }
         tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
         if ((abs(mZ2shift_plus) > 1.0)) {
-            // std::cout << "Sensitivity too high, approximating solution" << endl;
             too_sensitive_flag_plus = true;
             mu_TOTAL_weak_plus = munewweaks_plus[6] + (mustepplus / abs(mZ2shift_plus));
         } 
 
         while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0))) {
-            bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);// * ((2.0 * sqrt(munew_mZ2plus)) + 1.0) / abs(mZ2shift_plus);
-            // std::cout << "New mZ = " << sqrt(munew_mZ2plus) << endl;
-            // std::cout << "New mu = " << munewweaks_plus[6] << endl;
-            // std::cout << "New tanb = " << munewweaks_plus[43] << endl;
+            bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);
             vector<double> checkweaksols = munewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
             muplusEWSB = EWSB_Check(checkweaksols, checkRadCorrs);
@@ -1637,16 +1536,9 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             if (!(muplusNoCCB)) {
                 break;
             } 
-            // vector<double> tree_level_masses = TreeMassCalculator(checkweaksols, exp(mucurrentlogQSUSY), munew_mZ2plus);
-            // for (double value : tree_level_masses) {
-            //     if (value < 0) {
-            //         muplusNoCCB = false;
-            //     }
-            // }
             if (!(muplusNoCCB)) {
                 break;
             } 
-            // std::cout << "Mu step size = " << mustep << endl;
             vector<double> muoldweaks_plus = munewweaks_plus;
             munewweaks_plus[6] += bigmustep;
             munewweaks_plus[42] = (munewweaks_plus[42] / muoldweaks_plus[6]) * munewweaks_plus[6];
@@ -1660,7 +1552,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             munewweaks_plus[43] += ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * tanbshift_plus / abs(mZ2shift_plus);
             // Now adjust Yukawas for next iteration.
             if ((munewweaks_plus[43] < 3.0) || (munewweaks_plus[43] > 60.0)) {
-                // std::cout << "Yukawas non-perturbative" << endl;
                 muplusEWSB = false;
             } else {
                 for (int YukIndx = 7; YukIndx < 16; ++YukIndx) {
@@ -1673,7 +1564,6 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }        
 
             if (!muplusEWSB) {
-                // std::cout << "EWSB issue in convergence loop" << endl;
                 munewweaks_plus[6] = muoldweaks_plus[6];
                 munewweaks_plus[42] = muoldweaks_plus[42];
                 munewweaks_plus[43] = muoldweaks_plus[43];
@@ -1691,24 +1581,17 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             }
             tanbshift_plus = (current_derivatives[0] * mustepplus) + (0.5 * current_derivatives[1] * mustepplus * mustepplus);
             if ((abs(mZ2shift_plus) > 1.0)) {
-                // std::cout << "Sensitivity too high in ABDS plus routine" << endl;
                 too_sensitive_flag_plus = true;
-                //mu_weak_plus = munewweaks_plus[6] - mustep;
             } 
         }
-        std::cout << "mu(total, plus) = " << munewweaks_plus[6] << endl; 
         mu_TOTAL_weak_plus = munewweaks_plus[6];
 
         if ((abs(mu_TOTAL_weak_minus - mu_weak_minus) < 1.0e-12)) {
-            mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));//pow(10.0, -0.5) * mu_weak_minus;
+            mu_TOTAL_weak_minus = mu_weak_minus + (mustepminus / abs(mZ2shift_minus));
         }
         if ((abs(mu_TOTAL_weak_plus - mu_weak_plus) < 1.0e-12)) {
             mu_TOTAL_weak_plus = mu_weak_plus + (mustepplus / abs(mZ2shift_plus));
-        }
-        //std::cout << "General window established for mu variation." << endl;
-
-            //return {mu_weak_minus, mu_weak_plus, mu_TOTAL_weak_minus, mu_TOTAL_weak_plus};
-        
+        }        
 
         std::cout << "General window established for mu variation." << endl;
 
@@ -1736,14 +1619,16 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
     }
 }
 
-double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
-                double& current_mZ2, double& current_logQSUSY,
-                double& current_logQGUT, int& nF, int& nD) {
+std::vector<DSNLabeledValue> DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
+                                      double& current_mZ2, double& current_logQSUSY,
+                                      double& current_logQGUT, int& nF, int& nD) {
     double DSN, DSN_soft_num, DSN_soft_denom, DSN_higgsino, newterm;
+    double DSN_mu, DSN_mHu, DSN_mHd, DSN_M1, DSN_M2, DSN_M3, DSN_mQ1, DSN_mQ2, DSN_mQ3, DSN_mL1, DSN_mL2, DSN_mL3, DSN_mU1, DSN_mU2, DSN_mU3, DSN_mD1, DSN_mD2, DSN_mD3, DSN_mE1, DSN_mE2, DSN_mE3, DSN_at, DSN_ac, DSN_au, DSN_ab, DSN_as, DSN_ad, DSN_atau, DSN_amu, DSN_ae, DSN_B;
     DSN = 0.0;
+    vector<DSNLabeledValue> DSNlabeledlist, unsortedDSNlabeledlist;
     double t_target = log(500.0);
     std::cout << "This may take a while...\n\nProgress:\n-----------------------------------------------\n" << endl;
-    if ((precselno == 1) || (precselno == 2)) {
+    if ((precselno == 1)) {
         // Compute mu windows around original point
         vector<double> muinitwkBCs = Wk_boundary_conditions;
         vector<double> muwindows = DSN_mu_windows(muinitwkBCs, current_mZ2, current_logQSUSY);
@@ -1758,7 +1643,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_higgsino = abs(log10(abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6])) / boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6])))) / abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[6])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[6]))));
         }
         DSN += abs(log10(abs(DSN_higgsino)) - log10(abs(newterm)));
-        std::cout << "DSN after higgsino = " << DSN << endl;
+        DSN_mu = abs(log10(abs(DSN_higgsino)) - log10(abs(newterm)));
         
         // Now do same thing with mHu^2(GUT)
         vector<double> mHu2initwkBCs = Wk_boundary_conditions;
@@ -1781,7 +1666,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[25])), Wk_boundary_conditions[25]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mHu = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mHd^2(GUT)
         vector<double> mHd2initwkBCs = Wk_boundary_conditions;
@@ -1804,7 +1689,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[26])), Wk_boundary_conditions[26]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mHd = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with M1
         vector<double> M1initwkBCs = Wk_boundary_conditions;
@@ -1827,7 +1712,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[3])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[3])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_M1 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with M2
         vector<double> M2initwkBCs = Wk_boundary_conditions;
@@ -1850,7 +1735,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[4])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[4])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_M2 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with M3
         vector<double> M3initwkBCs = Wk_boundary_conditions;
@@ -1873,7 +1758,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[5])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[5])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_M3 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mQ3
         vector<double> MQ3initwkBCs = Wk_boundary_conditions;
@@ -1896,7 +1781,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[29])), Wk_boundary_conditions[29]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mQ3 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mQ2
         vector<double> MQ2initwkBCs = Wk_boundary_conditions;
@@ -1919,7 +1804,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[28])), Wk_boundary_conditions[28]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mQ2 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mQ1
         vector<double> MQ1initwkBCs = Wk_boundary_conditions;
@@ -1927,15 +1812,11 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ1windows[1])), MQ1windows[1])  - copysign(sqrt(abs(MQ1windows[0])), MQ1windows[0]));
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ1windows[1])), MQ1windows[1]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ1windows[0])), MQ1windows[0]), (2.0 * nF) + (1.0 * nD) - 1.0);
-        // std::cout << DSN_soft_num << endl;
-        // std::cout << DSN_soft_denom << endl;
         newterm = DSN_soft_num / DSN_soft_denom;
         // Total normalization
         DSN_soft_num = soft_prob_calc(copysign(sqrt(abs(MQ1windows[3])), MQ1windows[3]), (2.0 * nF) + (1.0 * nD) - 1.0)\
             - soft_prob_calc(copysign(sqrt(abs(MQ1windows[2])), MQ1windows[2]), (2.0 * nF) + (1.0 * nD) - 1.0);
         DSN_soft_denom = abs(copysign(sqrt(abs(MQ1windows[3])), MQ1windows[3]) - copysign(sqrt(abs(MQ1windows[2])), MQ1windows[2]));
-        // std::cout << DSN_soft_num / DSN_soft_denom << endl;
-        // std::cout << newterm << endl;
         if ((abs((DSN_soft_num / DSN_soft_denom) - newterm) < (numeric_limits<double>::epsilon())) || (isnan(abs((DSN_soft_num / DSN_soft_denom) - newterm))) || (abs((DSN_soft_num / DSN_soft_denom) - newterm) == 0.0) || isinf(abs((DSN_soft_num / DSN_soft_denom) - newterm))) {
             DSN_soft_num = soft_prob_calc(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0)\
                 - soft_prob_calc(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27])), (2.0 * nF) + (1.0 * nD) - 1.0);
@@ -1946,7 +1827,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[27])), Wk_boundary_conditions[27]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mQ1 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mL3
         vector<double> mL3initwkBCs = Wk_boundary_conditions;
@@ -1969,7 +1850,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[32])), Wk_boundary_conditions[32]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mL3 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mL2
         vector<double> mL2initwkBCs = Wk_boundary_conditions;
@@ -1992,7 +1873,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[31])), Wk_boundary_conditions[31]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mL2 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mL1
         vector<double> mL1initwkBCs = Wk_boundary_conditions;
@@ -2015,7 +1896,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[30])), Wk_boundary_conditions[30]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mL1 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mU3
         vector<double> mU3initwkBCs = Wk_boundary_conditions;
@@ -2038,7 +1919,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[35])), Wk_boundary_conditions[35]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mU3 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mU2
         vector<double> mU2initwkBCs = Wk_boundary_conditions;
@@ -2061,7 +1942,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[34])), Wk_boundary_conditions[34]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mU2 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mU1
         vector<double> mU1initwkBCs = Wk_boundary_conditions;
@@ -2084,7 +1965,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[33])), Wk_boundary_conditions[33]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mU1 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mD3
         vector<double> mD3initwkBCs = Wk_boundary_conditions;
@@ -2107,7 +1988,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[38])), Wk_boundary_conditions[38]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mD3 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mD2
         vector<double> mD2initwkBCs = Wk_boundary_conditions;
@@ -2130,7 +2011,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[37])), Wk_boundary_conditions[37]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mD2 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mD1
         vector<double> mD1initwkBCs = Wk_boundary_conditions;
@@ -2153,7 +2034,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[36])), Wk_boundary_conditions[36]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mD1 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mE3
         vector<double> mE3initwkBCs = Wk_boundary_conditions;
@@ -2176,7 +2057,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[41])), Wk_boundary_conditions[41]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mE3 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mE2
         vector<double> mE2initwkBCs = Wk_boundary_conditions;
@@ -2199,7 +2080,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[40])), Wk_boundary_conditions[40]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mE2 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with mE1
         vector<double> mE1initwkBCs = Wk_boundary_conditions;
@@ -2222,7 +2103,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39]))) - boost::math::float_prior(boost::math::float_prior(copysign(sqrt(abs(Wk_boundary_conditions[39])), Wk_boundary_conditions[39]))));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_mE1 = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with at
         vector<double> atinitwkBCs = Wk_boundary_conditions;
@@ -2245,7 +2126,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[16])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[16])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_at = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with ac
         vector<double> acinitwkBCs = Wk_boundary_conditions;
@@ -2268,7 +2149,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[17])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[17])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_ac = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with au    
         vector<double> auinitwkBCs = Wk_boundary_conditions;
@@ -2291,7 +2172,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[18])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[18])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_au = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with ab
         vector<double> abinitwkBCs = Wk_boundary_conditions;
@@ -2314,7 +2195,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[19])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[19])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_ab = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with as
         vector<double> asinitwkBCs = Wk_boundary_conditions;
@@ -2337,7 +2218,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[20])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[20])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_as = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with ad    
         vector<double> adinitwkBCs = Wk_boundary_conditions;
@@ -2360,7 +2241,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[21])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[21])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_ad = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with atau
         vector<double> atauinitwkBCs = Wk_boundary_conditions;
@@ -2383,7 +2264,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[22])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[22])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_atau = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
         
         // Now do same thing with amu
         vector<double> amuinitwkBCs = Wk_boundary_conditions;
@@ -2406,7 +2287,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[23])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[23])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_amu = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with ae    
         vector<double> aeinitwkBCs = Wk_boundary_conditions;
@@ -2429,7 +2310,7 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[24])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[24])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_ae = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
 
         // Now do same thing with B = b/mu;
         vector<double> BinitwkBCs = Wk_boundary_conditions;
@@ -2452,7 +2333,41 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_soft_denom = abs(boost::math::float_next(boost::math::float_next(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])) - boost::math::float_prior(boost::math::float_prior(Wk_boundary_conditions[42] / Wk_boundary_conditions[6])));
         }
         DSN += abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
-        std::cout << "DSN soft term = " << abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm))) << endl;
+        DSN_B = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
+
+        // Create return list
+        unsortedDSNlabeledlist = {{DSN_mu, "mu"},
+                                  {DSN_mHu, "mHu"},
+                                  {DSN_mHd, "mHd"},
+                                  {DSN_M1, "M1"},
+                                  {DSN_M2, "M2"},
+                                  {DSN_M3, "M3"},
+                                  {DSN_mQ3, "mQ3"},
+                                  {DSN_mQ2, "mQ2"},
+                                  {DSN_mQ1, "mQ1"},
+                                  {DSN_mL3, "mL3"},
+                                  {DSN_mL2, "mL2"},
+                                  {DSN_mL1, "mL1"},
+                                  {DSN_mU3, "mU3"},
+                                  {DSN_mU2, "mU2"},
+                                  {DSN_mU1, "mU1"},
+                                  {DSN_mD3, "mD3"},
+                                  {DSN_mD2, "mD2"},
+                                  {DSN_mD1, "mD1"},
+                                  {DSN_mE3, "mE3"},
+                                  {DSN_mE2, "mE2"},
+                                  {DSN_mE1, "mE1"},
+                                  {DSN_at, "a_t"},
+                                  {DSN_ac, "a_c"},
+                                  {DSN_au, "a_u"},
+                                  {DSN_ab, "a_b"},
+                                  {DSN_as, "a_s"},
+                                  {DSN_ad, "a_d"},
+                                  {DSN_atau, "a_tau"},
+                                  {DSN_amu, "a_mu"},
+                                  {DSN_ae, "a_e"},
+                                  {DSN_B, "B"}};
+        DSNlabeledlist = sortAndReturnDSN(unsortedDSNlabeledlist);
     } else {
         // Compute mu windows around original point
         vector<double> muinitwkBCs = Wk_boundary_conditions;
@@ -2469,8 +2384,11 @@ double DSN_calc(int precselno, std::vector<double> Wk_boundary_conditions,
             DSN_higgsino = 1.0 / abs(((pow(10.0, 0.5) - pow(10.0, -0.5))) * abs(Wk_boundary_conditions[6]));
         }
         DSN += abs(log10(abs(DSN_higgsino)) - log10(abs(newterm)));
-        std::cout << "DSN after higgsino = " << DSN << endl;
+        DSN_mu = abs(log10(abs(DSN_soft_num / DSN_soft_denom)) - log10(abs(newterm)));
+
+        // Create return list
+        DSNlabeledlist = {{DSN_mu, "mu"}};
     }    
 
-    return DSN;
+    return DSNlabeledlist;
 }
