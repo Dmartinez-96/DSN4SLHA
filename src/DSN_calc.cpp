@@ -598,7 +598,7 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             too_sensitive_flag_minus = true;
         } 
 
-        while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0))) {
+        while ((!too_sensitive_flag_minus) && (BminusEWSB) && (BminusNoCCB) && ((Bnew_mZ2minus > 1.0)) && (Bnew_mZ2plus < 1.0e12)) {
             bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2minus))) + 0.01)) * Bstepminus / abs(mZ2shift_minus);
             vector<double> checkweaksols = Bnewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(BnewlogQSUSY), Bnew_mZ2minus);
@@ -675,7 +675,7 @@ vector<double> DSN_B_windows(vector<double> Wk_boundary_conditions, double& curr
             B_TOTAL_weak_plus = Bnewweaks_plus[6] + (Bstepplus / abs(mZ2shift_plus));
         } 
 
-        while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0))) {
+        while ((!too_sensitive_flag_plus) && (BplusEWSB) && (BplusNoCCB) && ((Bnew_mZ2plus > 1.0)) && (Bnew_mZ2plus < 1.0e12)) {
             bigBstep = abs(((0.2 * sqrt(abs(Bnew_mZ2plus))) + 0.01)) * Bstepplus / abs(mZ2shift_plus);
             
             vector<double> checkweaksols = Bnewweaks_plus;
@@ -1042,7 +1042,7 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
             too_sensitive_flag_minus = true;
         } 
 
-        while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0))) {
+        while ((!too_sensitive_flag_minus) && (piminusEWSB) && (piminusNoCCB) && ((pinew_mZ2minus > 1.0)) && (pinew_mZ2minus < 1.0e12)) {
             bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2minus))) + 0.01)) * pistepminus / abs(mZ2shift_minus);
             vector<double> checkweaksols = pinewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2minus);
@@ -1120,7 +1120,7 @@ vector<double> DSN_specific_windows(vector<double>& Wk_boundary_conditions, doub
             too_sensitive_flag_plus = true;
         } 
 
-        while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0))) {
+        while ((!too_sensitive_flag_plus) && (piplusEWSB) && (piplusNoCCB) && ((pinew_mZ2plus > 1.0)) && (pinew_mZ2plus < 1.0e12)) {
             bigpistep = abs(((0.2 * sqrt(abs(pinew_mZ2plus))) + 0.01)) * pistepplus / abs(mZ2shift_plus);
             vector<double> checkweaksols = pinewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(pinewlogQSUSY), pinew_mZ2plus);
@@ -1439,7 +1439,7 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             too_sensitive_flag_minus = true;
         } 
 
-        while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0))) {
+        while ((!too_sensitive_flag_minus) && (muminusEWSB) && (muminusNoCCB) && (abs(munewweaks_minus[6]) > 1.0) && ((munew_mZ2minus > 1.0)) && (munew_mZ2minus < 1.0e12)) {
             bigmustep = ((0.2 * sqrt(munew_mZ2minus)) + 0.01) * mustepminus / abs(mZ2shift_minus);
             vector<double> checkweaksols = munewweaks_minus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2minus);
@@ -1520,7 +1520,7 @@ vector<double> DSN_mu_windows(vector<double>& Wk_boundary_conditions, double& cu
             mu_TOTAL_weak_plus = munewweaks_plus[6] + (mustepplus / abs(mZ2shift_plus));
         } 
 
-        while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0))) {
+        while ((!too_sensitive_flag_plus) && (muplusEWSB) && (muplusNoCCB) && (abs(munewweaks_plus[6]) > 1.0) && ((munew_mZ2plus > 1.0)) && (munew_mZ2plus < 1.0e12)) {
             bigmustep = ((0.2 * sqrt(munew_mZ2plus)) + 0.01) * mustepplus / abs(mZ2shift_plus);
             vector<double> checkweaksols = munewweaks_plus;
             vector<double> checkRadCorrs = radcorr_calc(checkweaksols, exp(munewlogQSUSY), munew_mZ2plus);
